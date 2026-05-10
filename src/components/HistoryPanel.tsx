@@ -1,5 +1,5 @@
 import { CompanyLogo } from "./CompanyLogo";
-import { formatCurrency, formatDate, getDisplayEntity, getDisplayTitle, getKindLabel, getRecurrenceLabel } from "../lib/finance";
+import { formatCurrency, formatDate, getDisplayEntity, getDisplayTitle, getKindLabel, getPaymentTypeLabel, getRecurrenceLabel } from "../lib/finance";
 import type { PaymentHistoryEntry } from "../types";
 
 interface HistoryPanelProps {
@@ -37,7 +37,9 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
                     {entry.conceptName.trim() ? <p className="history-item__entity">{displayEntity}</p> : null}
                     <p>
                       {getKindLabel(entry.kind)} - {getRecurrenceLabel(entry.recurrence)}
-                      {entry.installmentNumber && entry.installmentsTotal
+                      {entry.paymentType === "loan_extra_payment"
+                        ? ` - ${getPaymentTypeLabel(entry.paymentType)}`
+                        : entry.installmentNumber && entry.installmentsTotal
                         ? ` - Cuota ${entry.installmentNumber}/${entry.installmentsTotal}`
                         : ""}
                     </p>
@@ -47,7 +49,9 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
                   <strong>{formatCurrency(entry.amount)}</strong>
                   <p>
                     {formatDate(entry.paidAt)}
-                    {entry.kind === "recurring_expense"
+                    {entry.paymentType === "loan_extra_payment"
+                      ? " - Refuerzo aplicado sin mover la cuota"
+                      : entry.kind === "recurring_expense"
                       ? " - Sin vencimiento fijo"
                       : entry.nextDueDate
                         ? ` - Proximo ${formatDate(entry.nextDueDate)}`

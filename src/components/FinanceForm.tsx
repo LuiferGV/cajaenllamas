@@ -141,8 +141,8 @@ export function FinanceForm({
       <div className={`form-helper form-helper--${kindTheme}`}>
         {isLoan
           ? isScheduledLoan
-            ? "Prestamo con cuotero: cargas todas las cuotas con sus montos reales y el sistema avanza solo a la siguiente cada vez que pagas."
-            : "Prestamo por cuotas: primero defines la entidad, luego para que fue el prestamo, y el sistema sigue las cuotas hasta cerrarlo."
+            ? "Prestamo con cuotero: defines el monto total, cargas todas las cuotas con sus montos reales y luego puedes sumar refuerzos sin adelantar la cuota."
+            : "Prestamo por cuotas: defines el monto total del prestamo, el valor de la cuota y luego el sistema sigue cada vencimiento hasta cerrarlo."
           : isVariableExpense
             ? "Gasto variable: ideal para servicios como agua o luz, donde el monto cambia y lo ajustas en cada ciclo."
             : isRecurringExpense
@@ -237,6 +237,19 @@ export function FinanceForm({
           </span>
           <input type="text" inputMode="numeric" value={values.amount} onChange={handleFieldChange("amount")} placeholder="650000" />
         </label>
+
+        {isLoan ? (
+          <label className="field field--loan">
+            <span>Monto total del prestamo</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={values.principalAmount}
+              onChange={handleFieldChange("principalAmount")}
+              placeholder="125000000"
+            />
+          </label>
+        ) : null}
 
         {!isRecurringExpense ? (
           <label className={`field field--${kindTheme}`}>

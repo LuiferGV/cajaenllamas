@@ -1572,7 +1572,7 @@ select {
 
 .summary-loan-card__stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px;
 }
 
@@ -2105,6 +2105,10 @@ select {
   padding-top: 4px;
 }
 
+.inline-editor--loan-extra {
+  padding-top: 0;
+}
+
 .inline-editor__field {
   display: grid;
   gap: 8px;
@@ -2133,6 +2137,28 @@ select {
 
 .entry-card__actions {
   justify-content: flex-end;
+}
+
+.loan-extra-payment {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(89, 173, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.loan-extra-payment__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--text-main);
+}
+
+.loan-extra-payment__toggle {
+  justify-self: start;
 }
 
 .toolbar {

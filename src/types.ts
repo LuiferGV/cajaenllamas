@@ -4,6 +4,8 @@ export type Recurrence = "monthly" | "bimonthly" | "quarterly" | "semiannual" | 
 
 export type LoanPlanMode = "fixed" | "schedule";
 
+export type PaymentType = "cycle_payment" | "loan_installment" | "loan_extra_payment";
+
 export interface LoanInstallmentPlanEntry {
   installmentNumber: number;
   dueDate: string;
@@ -33,6 +35,8 @@ export interface FinanceItem {
   installmentsPaid: number;
   loanPlanMode: LoanPlanMode;
   installmentPlan: LoanInstallmentPlanEntry[] | null;
+  principalAmount: number | null;
+  principalRemaining: number | null;
   isCompleted: boolean;
 }
 
@@ -50,6 +54,7 @@ export interface PaymentHistoryEntry {
   nextDueDate: string | null;
   installmentNumber: number | null;
   installmentsTotal: number | null;
+  paymentType: PaymentType;
 }
 
 export interface FinanceState {
@@ -70,6 +75,7 @@ export interface FinanceDraft {
   currentInstallmentNumber: string;
   loanPlanMode: LoanPlanMode;
   installmentPlan: LoanInstallmentDraftEntry[];
+  principalAmount: string;
   historicalPaymentsCount: string;
   registerCurrentCycleAsPaid: "yes" | "no";
   currentCyclePaidAt: string;

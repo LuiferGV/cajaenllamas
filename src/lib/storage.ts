@@ -4,7 +4,7 @@ import type {
   FinanceItem,
   FinanceState,
   LoanInstallmentDraftEntry,
-  LoanInstallmentPlanEntry,
+  PaymentType,
   PaymentHistoryEntry,
   Recurrence
 } from "../types";
@@ -26,6 +26,17 @@ function normalizeRecurrence(recurrence: string | undefined): Recurrence {
   return "monthly";
 }
 
+function normalizePaymentType(
+  paymentType: string | undefined,
+  kind: EntryKind,
+  installmentNumber: number | null
+): PaymentType {
+  if (paymentType === "loan_extra_payment") return "loan_extra_payment";
+  if (paymentType === "loan_installment") return "loan_installment";
+  if (paymentType === "cycle_payment") return "cycle_payment";
+  return kind === "loan" && installmentNumber !== null ? "loan_installment" : "cycle_payment";
+}
+
 function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurrence?: string }): FinanceItem {
   const kind = normalizeKind(rawItem.kind);
   const installmentsTotal =
@@ -44,6 +55,20 @@ function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurren
       : null;
   const currentScheduledInstallment =
     loanPlanMode === "schedule" && installmentPlan?.length ? installmentPlan[installmentsPaid] ?? null : null;
+  const inferredPrincipalAmount =
+    kind === "loan"
+      ? typeof rawItem.principalAmount === "number"
+        ? rawItem.principalAmount
+        : installmentPlan?.length
+          ? installmentPlan.reduce((sum, entry) => sum + entry.amount, 0)
+          : Math.max((typeof rawItem.amount === "number" ? rawItem.amount : 0) * Math.max(installmentsTotal ?? 1, 1), 0)
+      : null;
+  const inferredPaidPrincipal =
+    kind === "loan"
+      ? loanPlanMode === "schedule" && installmentPlan?.length
+        ? installmentPlan.slice(0, installmentsPaid).reduce((sum, entry) => sum + entry.amount, 0)
+        : (typeof rawItem.amount === "number" ? rawItem.amount : 0) * installmentsPaid
+      : 0;
   const isCompleted =
     typeof rawItem.isCompleted === "boolean"
       ? rawItem.isCompleted
@@ -69,7 +94,9 @@ function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurren
           : 0,
     recurrence: kind === "loan" ? "monthly" : normalizeRecurrence(rawItem.recurrence),
     dueDate:
-      isCompleted
+      kind === "recurring_expense"
+        ? null
+        : isCompleted
         ? null
         : kind === "loan" && loanPlanMode === "schedule"
           ? currentScheduledInstallment?.dueDate ?? rawItem.dueDate ?? todayKey()
@@ -82,6 +109,13 @@ function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurren
     installmentsPaid,
     loanPlanMode,
     installmentPlan,
+    principalAmount: inferredPrincipalAmount,
+    principalRemaining:
+      kind === "loan"
+        ? typeof rawItem.principalRemaining === "number"
+          ? Math.max(rawItem.principalRemaining, 0)
+          : Math.max((inferredPrincipalAmount ?? 0) - inferredPaidPrincipal, 0)
+        : null,
     isCompleted
   };
 }
@@ -96,6 +130,8 @@ function normalizeHistoryEntry(
   const conceptName = typeof rawEntry.conceptName === "string" ? rawEntry.conceptName : "";
 
   return {
+    installmentNumber: typeof rawEntry.installmentNumber === "number" ? rawEntry.installmentNumber : null,
+    installmentsTotal: typeof rawEntry.installmentsTotal === "number" ? rawEntry.installmentsTotal : null,
     id: rawEntry.id ?? `legacy-payment-${Math.random().toString(36).slice(2, 8)}`,
     itemId: rawEntry.itemId ?? "",
     itemName: buildDisplayName(entityName, conceptName),
@@ -107,8 +143,11 @@ function normalizeHistoryEntry(
     paidAt: rawEntry.paidAt ?? todayKey(),
     coveredDueDate: rawEntry.coveredDueDate ?? null,
     nextDueDate: rawEntry.nextDueDate ?? null,
-    installmentNumber: typeof rawEntry.installmentNumber === "number" ? rawEntry.installmentNumber : null,
-    installmentsTotal: typeof rawEntry.installmentsTotal === "number" ? rawEntry.installmentsTotal : null
+    paymentType: normalizePaymentType(
+      rawEntry.paymentType,
+      normalizeKind(rawEntry.kind),
+      typeof rawEntry.installmentNumber === "number" ? rawEntry.installmentNumber : null
+    )
   };
 }
 

@@ -7,6 +7,7 @@ import type {
   LoanInstallmentPlanEntry,
   LoanPlanMode,
   PaymentHistoryEntry,
+  PaymentType,
   Recurrence
 } from "../types";
 
@@ -23,6 +24,8 @@ interface LoanMetrics extends SegmentMetrics {
   paidInstallments: number;
   totalInstallments: number;
   remainingInstallments: number;
+  principalAmountTotal: number;
+  principalRemainingTotal: number;
 }
 
 export interface DashboardMetrics {
@@ -113,6 +116,7 @@ export function createEmptyDraft(): FinanceDraft {
     currentInstallmentNumber: "1",
     loanPlanMode: "fixed",
     installmentPlan: [],
+    principalAmount: "",
     historicalPaymentsCount: "0",
     registerCurrentCycleAsPaid: "no",
     currentCyclePaidAt: todayKey()
@@ -148,6 +152,12 @@ export function getRecurrenceLabel(recurrence: Recurrence) {
 
 export function getKindLabel(kind: EntryKind) {
   return KIND_OPTIONS.find((option) => option.value === kind)?.label ?? kind;
+}
+
+export function getPaymentTypeLabel(paymentType: PaymentType) {
+  if (paymentType === "loan_installment") return "Cuota";
+  if (paymentType === "loan_extra_payment") return "Refuerzo";
+  return "Pago";
 }
 
 export function buildDisplayName(entityName: string, conceptName: string) {
@@ -284,6 +294,39 @@ function getEffectiveDueDate(item: Pick<FinanceItem, "kind" | "dueDate">) {
   return item.kind === "recurring_expense" ? null : item.dueDate;
 }
 
+function getLoanPaymentType(item: Pick<FinanceItem, "kind">): PaymentType {
+  return item.kind === "loan" ? "loan_installment" : "cycle_payment";
+}
+
+function getSeededLoanPaidAmount(
+  kind: EntryKind,
+  loanPlanMode: LoanPlanMode,
+  amount: number,
+  installmentsPaid: number,
+  installmentPlan: LoanInstallmentPlanEntry[] | null
+) {
+  if (kind !== "loan") return 0;
+
+  if (loanPlanMode === "schedule" && installmentPlan?.length) {
+    return installmentPlan
+      .slice(0, installmentsPaid)
+      .reduce((sum, entry) => sum + entry.amount, 0);
+  }
+
+  return amount * installmentsPaid;
+}
+
+function getAdjustedPrincipalRemaining(previous: FinanceItem | undefined, nextPrincipalAmount: number) {
+  if (!previous || previous.kind !== "loan") {
+    return nextPrincipalAmount;
+  }
+
+  const previousPrincipalAmount = previous.principalAmount ?? nextPrincipalAmount;
+  const previousPrincipalRemaining = previous.principalRemaining ?? previousPrincipalAmount;
+  const alreadyReduced = Math.max(previousPrincipalAmount - previousPrincipalRemaining, 0);
+  return Math.max(nextPrincipalAmount - alreadyReduced, 0);
+}
+
 export function buildItemFromDraft(
   draft: FinanceDraft,
   itemId?: string,
@@ -291,11 +334,12 @@ export function buildItemFromDraft(
   options?: { mode?: "create" | "edit" }
 ): FinanceItem {
   const now = todayKey();
+  const mode = options?.mode ?? "create";
   const installmentsTotal = draft.kind === "loan" ? parseCount(draft.installmentsTotal) : null;
   const loanPlanMode = draft.kind === "loan" ? draft.loanPlanMode : "fixed";
   const installmentsPaid =
     draft.kind === "loan"
-      ? options?.mode === "create"
+      ? mode === "create"
         ? Math.max(parseCount(draft.currentInstallmentNumber) - 1, 0)
         : parseCount(draft.installmentsPaid)
       : 0;
@@ -309,10 +353,19 @@ export function buildItemFromDraft(
     draft.kind === "loan" && loanPlanMode === "schedule"
       ? currentScheduledInstallment?.amount ?? parseAmount(draft.amount)
       : parseAmount(draft.amount);
+  const principalAmount = draft.kind === "loan" ? parseAmount(draft.principalAmount) : null;
   const isCompleted =
     draft.kind === "loan"
       ? installmentsTotal !== null && (installmentsPaid >= installmentsTotal || (loanPlanMode === "schedule" && !currentScheduledInstallment))
       : false;
+  const seededLoanPaidAmount =
+    draft.kind === "loan" ? getSeededLoanPaidAmount(draft.kind, loanPlanMode, amount, installmentsPaid, installmentPlan) : 0;
+  const principalRemaining =
+    draft.kind === "loan" && principalAmount !== null
+      ? mode === "create"
+        ? Math.max(principalAmount - seededLoanPaidAmount, 0)
+        : getAdjustedPrincipalRemaining(previous, principalAmount)
+      : null;
   const dueDate =
     draft.kind === "recurring_expense"
       ? null
@@ -341,6 +394,8 @@ export function buildItemFromDraft(
     installmentsPaid,
     loanPlanMode,
     installmentPlan,
+    principalAmount,
+    principalRemaining,
     isCompleted
   };
 }
@@ -366,6 +421,7 @@ export function draftFromItem(item: FinanceItem): FinanceDraft {
         dueDate: entry.dueDate,
         amount: String(entry.amount)
       })) ?? [],
+    principalAmount: item.principalAmount ? String(item.principalAmount) : "",
     historicalPaymentsCount: "0",
     registerCurrentCycleAsPaid: "no",
     currentCyclePaidAt: todayKey()
@@ -388,7 +444,9 @@ export function validateDraft(draft: FinanceDraft) {
     const paidInstallments = parseCount(draft.installmentsPaid);
     const currentInstallmentNumber = parseCount(draft.currentInstallmentNumber);
     const installmentPlan = sanitizeInstallmentPlanEntries(draft.installmentPlan);
+    const principalAmount = parseAmount(draft.principalAmount);
 
+    if (principalAmount <= 0) return "Indica el monto total del prestamo.";
     if (totalInstallments <= 0) return "Indica cuantas cuotas tiene el prestamo.";
     if (currentInstallmentNumber <= 0) return "Indica que numero de cuota vas a cargar.";
     if (currentInstallmentNumber > totalInstallments) return "La cuota actual no puede superar el total de cuotas.";
@@ -488,6 +546,16 @@ export function getRemainingInstallments(item: FinanceItem) {
   return Math.max(item.installmentsTotal - item.installmentsPaid, 0);
 }
 
+export function getLoanPrincipalAmount(item: FinanceItem) {
+  if (!isLoan(item)) return null;
+  return item.principalAmount;
+}
+
+export function getLoanPrincipalRemaining(item: FinanceItem) {
+  if (!isLoan(item)) return null;
+  return item.principalRemaining;
+}
+
 export function getCurrentInstallmentNumber(item: FinanceItem) {
   if (!isLoan(item) || item.installmentsTotal === null) return null;
   if (item.installmentsTotal <= 0) return null;
@@ -558,7 +626,8 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
     coveredDueDate: currentDueDate,
     nextDueDate,
     installmentNumber,
-    installmentsTotal: item.installmentsTotal
+    installmentsTotal: item.installmentsTotal,
+    paymentType: getLoanPaymentType(item)
   };
 
   return {
@@ -572,7 +641,54 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
               updatedAt: paidAt,
               lastPaidAt: paidAt,
               installmentsPaid: nextInstallmentsPaid,
+              principalRemaining:
+                item.kind === "loan"
+                  ? Math.max((entry.principalRemaining ?? entry.principalAmount ?? 0) - currentAmount, 0)
+                  : entry.principalRemaining,
               isCompleted: completesLoan
+            }
+          : entry
+      )
+      .sort(sortItems),
+    history: [payment, ...state.history].sort((left, right) => right.paidAt.localeCompare(left.paidAt))
+  };
+}
+
+export function registerLoanExtraPayment(
+  state: FinanceState,
+  itemId: string,
+  amount: number,
+  paidAt = todayKey()
+): FinanceState {
+  const item = state.items.find((entry) => entry.id === itemId);
+  if (!item || item.kind !== "loan" || item.isCompleted || amount <= 0) return state;
+
+  const payment: PaymentHistoryEntry = {
+    id: createId("payment"),
+    itemId: item.id,
+    itemName: item.name,
+    entityName: item.entityName,
+    conceptName: item.conceptName,
+    kind: item.kind,
+    amount,
+    recurrence: item.recurrence,
+    paidAt,
+    coveredDueDate: item.dueDate,
+    nextDueDate: item.dueDate,
+    installmentNumber: null,
+    installmentsTotal: item.installmentsTotal,
+    paymentType: "loan_extra_payment"
+  };
+
+  return {
+    items: state.items
+      .map((entry) =>
+        entry.id === itemId
+          ? {
+              ...entry,
+              updatedAt: paidAt,
+              lastPaidAt: paidAt,
+              principalRemaining: Math.max((entry.principalRemaining ?? entry.principalAmount ?? 0) - amount, 0)
             }
           : entry
       )
@@ -602,7 +718,8 @@ function createHistoricalPaymentEntry(
     coveredDueDate,
     nextDueDate,
     installmentNumber,
-    installmentsTotal: item.installmentsTotal
+    installmentsTotal: item.installmentsTotal,
+    paymentType: getLoanPaymentType(item)
   };
 }
 
@@ -781,7 +898,9 @@ export function getDashboardMetrics(state: FinanceState, baseDate = new Date()):
       remainingInstallments: activeLoanItems.reduce(
         (sum, item) => sum + (getInstallmentsAfterCurrent(item) ?? 0),
         0
-      )
+      ),
+      principalAmountTotal: loanItems.reduce((sum, item) => sum + (item.principalAmount ?? 0), 0),
+      principalRemainingTotal: activeLoanItems.reduce((sum, item) => sum + (item.principalRemaining ?? 0), 0)
     },
     fixedExpenses: getSegmentMetrics(state, "fixed_expense", baseDate),
     variableExpenses: getSegmentMetrics(state, "variable_expense", baseDate),

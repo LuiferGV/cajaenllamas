@@ -11,6 +11,8 @@ import {
   getInstallmentsAfterCurrent,
   getKindLabel,
   getKindTheme,
+  getLoanPrincipalAmount,
+  getLoanPrincipalRemaining,
   getRecurrenceLabel,
   getRemainingInstallments,
   isLoan,
@@ -23,6 +25,7 @@ interface ExpenseRowProps {
   lastPayment: PaymentHistoryEntry | null;
   confirmingDelete: boolean;
   onPay: () => void;
+  onAddExtraPayment: (nextAmount: string) => void;
   onEdit: () => void;
   onSaveAmount: (nextAmount: string) => void;
   onAskDelete: () => void;
@@ -35,6 +38,7 @@ export function ExpenseRow({
   lastPayment,
   confirmingDelete,
   onPay,
+  onAddExtraPayment,
   onEdit,
   onSaveAmount,
   onAskDelete,
@@ -48,16 +52,26 @@ export function ExpenseRow({
   const remainingInstallments = getRemainingInstallments(item);
   const installmentsAfterCurrent = getInstallmentsAfterCurrent(item);
   const currentInstallmentNumber = getCurrentInstallmentNumber(item);
+  const principalAmount = getLoanPrincipalAmount(item);
+  const principalRemaining = getLoanPrincipalRemaining(item);
   const showPayButton = !item.isCompleted;
   const kindTheme = getKindTheme(item.kind);
   const hasLoanSchedule = hasScheduledLoanPlan(item);
   const canEditCycleAmount = (item.kind === "variable_expense" || item.kind === "recurring_expense") && !item.isCompleted;
   const [amountDraft, setAmountDraft] = useState(String(item.amount));
+  const [showExtraPayment, setShowExtraPayment] = useState(false);
+  const [extraPaymentDraft, setExtraPaymentDraft] = useState("");
   const canSaveAmount = parseAmount(amountDraft) > 0 && parseAmount(amountDraft) !== item.amount;
+  const canSaveExtraPayment = parseAmount(extraPaymentDraft) > 0;
 
   useEffect(() => {
     setAmountDraft(String(item.amount));
   }, [item.amount]);
+
+  useEffect(() => {
+    setShowExtraPayment(false);
+    setExtraPaymentDraft("");
+  }, [item.id]);
 
   return (
     <article className={`entry-card entry-card--${kindTheme}`}>
@@ -126,8 +140,8 @@ export function ExpenseRow({
               ? item.isCompleted
                 ? "Prestamo completado"
                 : hasLoanSchedule
-                  ? `Cuotero activo. Pendientes: ${remainingInstallments ?? 0} con esta incluida. Despues quedan ${installmentsAfterCurrent ?? 0}.`
-                  : `Pendientes: ${remainingInstallments ?? 0} con esta incluida. Despues quedan ${installmentsAfterCurrent ?? 0}.`
+                  ? `Saldo restante: ${formatCurrency(principalRemaining ?? 0)}. Cuotero activo con ${remainingInstallments ?? 0} cuota(s) contando la actual.`
+                  : `Saldo restante: ${formatCurrency(principalRemaining ?? 0)}. Pendientes: ${remainingInstallments ?? 0} con esta incluida.`
               : item.kind === "variable_expense"
                 ? "Monto editable al cambiar la factura"
                 : item.kind === "recurring_expense"
@@ -135,6 +149,54 @@ export function ExpenseRow({
                 : "Gasto recurrente sin fecha de cierre"}
           </span>
         </div>
+
+        {isLoan(item) && !item.isCompleted ? (
+          <div className="loan-extra-payment">
+            <div className="loan-extra-payment__summary">
+              <span>Monto del prestamo: {formatCurrency(principalAmount ?? 0)}</span>
+              <span>Saldo restante: {formatCurrency(principalRemaining ?? 0)}</span>
+            </div>
+            <button
+              type="button"
+              className="outline-button loan-extra-payment__toggle"
+              onClick={() => {
+                setShowExtraPayment((current) => !current);
+                if (showExtraPayment) {
+                  setExtraPaymentDraft("");
+                }
+              }}
+            >
+              {showExtraPayment ? "Cancelar refuerzo" : "Agregar refuerzo"}
+            </button>
+
+            {showExtraPayment ? (
+              <div className="inline-editor inline-editor--loan-extra">
+                <label className="inline-editor__field">
+                  <span>Monto del refuerzo</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={extraPaymentDraft}
+                    onChange={(event) => setExtraPaymentDraft(event.target.value)}
+                    placeholder="3500000"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={!canSaveExtraPayment}
+                  onClick={() => {
+                    onAddExtraPayment(extraPaymentDraft);
+                    setExtraPaymentDraft("");
+                    setShowExtraPayment(false);
+                  }}
+                >
+                  Guardar refuerzo
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {canEditCycleAmount ? (
           <div className="inline-editor">

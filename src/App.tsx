@@ -26,12 +26,15 @@ import {
   getKindLabel,
   getKindTheme,
   getInstallmentsAfterCurrent,
+  getLoanPrincipalAmount,
+  getLoanPrincipalRemaining,
   getNextActiveItem,
   getRemainingInstallments,
   getRecurrenceLabel,
   isLoan,
   parseAmount,
   registerPayment,
+  registerLoanExtraPayment,
   seedInitialHistory,
   todayKey,
   upsertItem,
@@ -129,6 +132,7 @@ export default function App() {
           currentInstallmentNumber: "1",
           loanPlanMode: "fixed",
           installmentPlan: [],
+          principalAmount: nextKind === "loan" ? current.principalAmount : "",
           historicalPaymentsCount: nextKind === "loan" || nextKind === "recurring_expense" ? "0" : current.historicalPaymentsCount,
           registerCurrentCycleAsPaid: "no",
           currentCyclePaidAt: todayKey()
@@ -292,6 +296,16 @@ export default function App() {
         : item && isLoan(item)
           ? "Cuota registrada y sincronizada"
           : "Pago registrado y sincronizado"
+    );
+  };
+
+  const handleExtraPayment = (itemId: string, nextAmount: string) => {
+    const parsedAmount = parseAmount(nextAmount);
+    if (parsedAmount <= 0) return;
+
+    void applyFinanceMutation(
+      (current) => registerLoanExtraPayment(current, itemId, parsedAmount),
+      "Refuerzo aplicado al saldo del prestamo"
     );
   };
 
@@ -511,6 +525,9 @@ export default function App() {
                   <span>{metrics.loans.completedCount} prestamo(s) completados</span>
                 </div>
               </div>
+              <p className="category-card__note">
+                Saldo restante total de prestamos: {formatCurrency(metrics.loans.principalRemainingTotal)}
+              </p>
             </article>
 
             <article className="surface-card category-card category-card--variable">
@@ -631,6 +648,8 @@ export default function App() {
                       const currentInstallmentNumber = getCurrentInstallmentNumber(item);
                       const remainingInstallments = getRemainingInstallments(item) ?? 0;
                       const installmentsAfterCurrent = getInstallmentsAfterCurrent(item) ?? 0;
+                      const principalAmount = getLoanPrincipalAmount(item);
+                      const principalRemaining = getLoanPrincipalRemaining(item);
 
                       return (
                         <article key={item.id} className="summary-loan-card">
@@ -644,11 +663,19 @@ export default function App() {
 
                           <div className="summary-loan-card__stats">
                             <div>
-                              <span>Monto</span>
+                              <span>Cuota actual</span>
                               <strong>{formatCurrency(item.amount)}</strong>
                             </div>
                             <div>
-                              <span>Cuota actual</span>
+                              <span>Prestamo total</span>
+                              <strong>{formatCurrency(principalAmount ?? 0)}</strong>
+                            </div>
+                            <div>
+                              <span>Saldo restante</span>
+                              <strong>{formatCurrency(principalRemaining ?? 0)}</strong>
+                            </div>
+                            <div>
+                              <span>Cuota nro.</span>
                               <strong>
                                 {currentInstallmentNumber && item.installmentsTotal
                                   ? `${currentInstallmentNumber}/${item.installmentsTotal}`
@@ -656,17 +683,13 @@ export default function App() {
                               </strong>
                             </div>
                             <div>
-                              <span>Pendientes</span>
+                              <span>Cuotas pendientes</span>
                               <strong>{remainingInstallments} con esta</strong>
-                            </div>
-                            <div>
-                              <span>Luego de esta</span>
-                              <strong>{installmentsAfterCurrent}</strong>
                             </div>
                           </div>
 
                           <p className="summary-loan-card__due">
-                            {item.dueDate ? `Vence ${formatDate(item.dueDate)}` : "Sin vencimiento pendiente"}
+                            {item.dueDate ? `Vence ${formatDate(item.dueDate)} · Luego de esta quedan ${installmentsAfterCurrent} cuota(s).` : "Sin vencimiento pendiente"}
                           </p>
                         </article>
                       );
@@ -916,6 +939,7 @@ export default function App() {
                         lastPayment={lastPayment}
                         confirmingDelete={pendingDeleteId === item.id}
                         onPay={() => handlePay(item.id)}
+                        onAddExtraPayment={(nextAmount) => handleExtraPayment(item.id, nextAmount)}
                         onEdit={() => handleEdit(item)}
                         onSaveAmount={(nextAmount) => handleSaveVariableAmount(item.id, nextAmount)}
                         onAskDelete={() => setPendingDeleteId(item.id)}
