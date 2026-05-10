@@ -351,6 +351,7 @@ select {
 
 .topbar__actions,
 .section-heading,
+.composer-card__header-actions,
 .entry-card__heading,
 .entry-card__actions,
 .field-grid,
@@ -371,6 +372,11 @@ select {
 .section-heading {
   align-items: flex-start;
   justify-content: space-between;
+}
+
+.composer-card__header-actions {
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .metrics-grid,
@@ -399,6 +405,12 @@ select {
   align-items: start;
 }
 
+.records-stage {
+  display: grid;
+  gap: 20px;
+  margin-top: 22px;
+}
+
 .workspace-column {
   display: grid;
   gap: 20px;
@@ -408,6 +420,44 @@ select {
 .composer-card {
   padding: 22px;
   border-radius: var(--radius-xl);
+}
+
+.modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-backdrop-dismiss {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  background: rgba(3, 8, 13, 0.76);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+
+.modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 860px);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border-radius: var(--radius-xl);
+  overscroll-behavior: contain;
+}
+
+.modal-panel .composer-card {
+  margin: 0;
+}
+
+.modal-close-button {
+  min-height: 42px;
+  padding-inline: 16px;
 }
 
 .composer-card {
@@ -1802,6 +1852,15 @@ select {
   .topbar__logo-wrap {
     min-height: 140px;
     padding: 16px;
+  }
+
+  .modal-shell {
+    padding: 12px;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: calc(100vh - 24px);
   }
 
   .entry-card__heading,

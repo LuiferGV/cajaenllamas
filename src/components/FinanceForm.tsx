@@ -1,6 +1,6 @@
 import { CompanyLogo } from "./CompanyLogo";
 import { getCompanyBrand } from "../lib/companyBrand";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { getKindTheme, KIND_OPTIONS, parseCount, RECURRENCE_OPTIONS } from "../lib/finance";
 import type { FinanceDraft } from "../types";
 
@@ -32,9 +32,11 @@ interface FinanceFormProps {
   onChange: (field: keyof FinanceDraft, value: string) => void;
   onSubmit: () => void;
   onReset: () => void;
+  headerAction?: ReactNode;
+  titleId?: string;
 }
 
-export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset }: FinanceFormProps) {
+export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, headerAction, titleId }: FinanceFormProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSubmit();
@@ -89,9 +91,12 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset }
       <div className="section-heading">
         <div>
           <p className="eyebrow">Carga rapida</p>
-          <h2>{mode === "create" ? "Nuevo compromiso" : "Editar registro"}</h2>
+          <h2 id={titleId}>{mode === "create" ? "Nuevo compromiso" : "Editar registro"}</h2>
         </div>
-        <span className={`status-pill status-pill--kind status-pill--kind-${kindTheme}`}>{KIND_COPY[values.kind].title}</span>
+        <div className="composer-card__header-actions">
+          <span className={`status-pill status-pill--kind status-pill--kind-${kindTheme}`}>{KIND_COPY[values.kind].title}</span>
+          {headerAction}
+        </div>
       </div>
 
       <div className={`form-helper form-helper--${kindTheme}`}>

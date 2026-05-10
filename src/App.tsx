@@ -70,12 +70,12 @@ export default function App() {
   const [formError, setFormError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("Sincronizacion activa");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [loginEmail, setLoginEmail] = useState("luifer.gv@gmail.com");
   const [loginPassword, setLoginPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [manualAuthError, setManualAuthError] = useState<string | null>(null);
-  const formRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<HTMLElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -97,6 +97,30 @@ export default function App() {
       setAuthMode("login");
     }
   }, [sessionState]);
+
+  useEffect(() => {
+    if (!isComposerOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsComposerOpen(false);
+        setDraft(createEmptyDraft());
+        setFormMode("create");
+        setEditingId(null);
+        setFormError(null);
+        setPendingDeleteId(null);
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isComposerOpen]);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const filteredItems = filterItems(financeState.items, deferredSearchTerm, kindFilter);
@@ -149,6 +173,25 @@ export default function App() {
     setEditingId(null);
     setFormError(null);
     setPendingDeleteId(null);
+  };
+
+  const closeComposer = () => {
+    setIsComposerOpen(false);
+    resetForm();
+  };
+
+  const openCreateComposer = () => {
+    resetForm();
+    setIsComposerOpen(true);
+  };
+
+  const handleFormReset = () => {
+    if (formMode === "edit") {
+      closeComposer();
+      return;
+    }
+
+    resetForm();
   };
 
   const applyFinanceMutation = async (
@@ -205,7 +248,7 @@ export default function App() {
         return;
       }
 
-      resetForm();
+      closeComposer();
 
       if (typeof window !== "undefined" && window.innerWidth <= 1080) {
         listRef.current?.scrollIntoView({
@@ -236,11 +279,7 @@ export default function App() {
       setEditingId(item.id);
       setPendingDeleteId(null);
       setFormError(null);
-    });
-
-    formRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
+      setIsComposerOpen(true);
     });
   };
 
@@ -249,7 +288,7 @@ export default function App() {
     setPendingDeleteId(null);
 
     if (editingId === itemId) {
-      resetForm();
+      closeComposer();
     }
   };
 
@@ -404,16 +443,7 @@ export default function App() {
           <button type="button" className="outline-button" onClick={() => void logout()}>
             Cerrar sesion
           </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() =>
-              formRef.current?.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-              })
-            }
-          >
+          <button type="button" className="primary-button" onClick={openCreateComposer}>
             Nuevo registro
           </button>
         </div>
@@ -725,89 +755,98 @@ export default function App() {
         <HistoryPanel history={financeState.history} />
       </section>
 
-      <section className="workspace-grid">
-        <section ref={formRef} className="workspace-column">
-          <FinanceForm
-            values={draft}
-            mode={formMode}
-            error={formError}
-            onChange={handleDraftChange}
-            onSubmit={handleSubmit}
-            onReset={resetForm}
-          />
-        </section>
-
-        <section ref={listRef} className="workspace-column workspace-column--wide">
-          <div className="surface-card list-card">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">CRUD directo</p>
-                <h2>Prestamos y gastos</h2>
-              </div>
-              <span className="status-pill status-pill--neutral">Pago, edicion y borrado sin submenus</span>
+      <section ref={listRef} className="records-stage">
+        <div className="surface-card list-card">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">CRUD directo</p>
+              <h2>Prestamos y gastos</h2>
             </div>
-
-            <div className="toolbar">
-              <label className="toolbar__search">
-                <span>Buscar</span>
-                <input
-                  type="search"
-                  placeholder="Filtra por empresa, tipo o recurrencia"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                />
-              </label>
-
-              <div className="filter-group">
-                {FILTER_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`filter-pill ${
-                      option.value === "all"
-                        ? "filter-pill--all"
-                        : `filter-pill--${getKindTheme(option.value)}`
-                    } ${kindFilter === option.value ? "is-active" : ""}`}
-                    onClick={() => setKindFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {filteredItems.length === 0 ? (
-              <div className="empty-state">
-                <h3>No hay registros para mostrar</h3>
-                <p>
-                  Puedes cargar un prestamo por cuotas, un gasto fijo sin fin o un gasto variable cuyo monto cambie cada mes.
-                </p>
-              </div>
-            ) : (
-              <div className="entry-list">
-                {filteredItems.map((item) => {
-                  const lastPayment = financeState.history.find((entry) => entry.itemId === item.id) ?? null;
-
-                  return (
-                    <ExpenseRow
-                      key={item.id}
-                      item={item}
-                      lastPayment={lastPayment}
-                      confirmingDelete={pendingDeleteId === item.id}
-                      onPay={() => handlePay(item.id)}
-                      onEdit={() => handleEdit(item)}
-                      onSaveAmount={(nextAmount) => handleSaveVariableAmount(item.id, nextAmount)}
-                      onAskDelete={() => setPendingDeleteId(item.id)}
-                      onConfirmDelete={() => handleDelete(item.id)}
-                      onCancelDelete={() => setPendingDeleteId(null)}
-                    />
-                  );
-                })}
-              </div>
-            )}
+            <span className="status-pill status-pill--neutral">Pago, edicion y borrado sin submenus</span>
           </div>
-        </section>
+
+          <div className="toolbar">
+            <label className="toolbar__search">
+              <span>Buscar</span>
+              <input
+                type="search"
+                placeholder="Filtra por empresa, tipo o recurrencia"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </label>
+
+            <div className="filter-group">
+              {FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`filter-pill ${
+                    option.value === "all"
+                      ? "filter-pill--all"
+                      : `filter-pill--${getKindTheme(option.value)}`
+                  } ${kindFilter === option.value ? "is-active" : ""}`}
+                  onClick={() => setKindFilter(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredItems.length === 0 ? (
+            <div className="empty-state">
+              <h3>No hay registros para mostrar</h3>
+              <p>
+                Puedes cargar un prestamo por cuotas, un gasto fijo sin fin o un gasto variable cuyo monto cambie cada mes.
+              </p>
+            </div>
+          ) : (
+            <div className="entry-list">
+              {filteredItems.map((item) => {
+                const lastPayment = financeState.history.find((entry) => entry.itemId === item.id) ?? null;
+
+                return (
+                  <ExpenseRow
+                    key={item.id}
+                    item={item}
+                    lastPayment={lastPayment}
+                    confirmingDelete={pendingDeleteId === item.id}
+                    onPay={() => handlePay(item.id)}
+                    onEdit={() => handleEdit(item)}
+                    onSaveAmount={(nextAmount) => handleSaveVariableAmount(item.id, nextAmount)}
+                    onAskDelete={() => setPendingDeleteId(item.id)}
+                    onConfirmDelete={() => handleDelete(item.id)}
+                    onCancelDelete={() => setPendingDeleteId(null)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
+
+      {isComposerOpen ? (
+        <div className="modal-shell" role="dialog" aria-modal="true" aria-labelledby="composer-modal-title">
+          <div className="modal-panel" onClick={(event) => event.stopPropagation()}>
+            <FinanceForm
+              values={draft}
+              mode={formMode}
+              error={formError}
+              onChange={handleDraftChange}
+              onSubmit={handleSubmit}
+              onReset={handleFormReset}
+              headerAction={
+                <button type="button" className="outline-button modal-close-button" onClick={closeComposer}>
+                  Cerrar
+                </button>
+              }
+              titleId="composer-modal-title"
+            />
+          </div>
+          <button type="button" className="modal-backdrop-dismiss" aria-label="Cerrar modal" onClick={closeComposer} />
+        </div>
+      ) : null}
     </div>
   );
 }
