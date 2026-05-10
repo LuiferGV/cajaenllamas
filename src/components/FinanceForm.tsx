@@ -238,10 +238,12 @@ export function FinanceForm({
           <input type="text" inputMode="numeric" value={values.amount} onChange={handleFieldChange("amount")} placeholder="650000" />
         </label>
 
-        <label className={`field field--${kindTheme}`}>
-          <span>{dueDateLabel}</span>
-          <input type="date" value={values.dueDate} onChange={handleFieldChange("dueDate")} />
-        </label>
+        {!isRecurringExpense ? (
+          <label className={`field field--${kindTheme}`}>
+            <span>{dueDateLabel}</span>
+            <input type="date" value={values.dueDate} onChange={handleFieldChange("dueDate")} />
+          </label>
+        ) : null}
 
         {isLoan ? (
           <>
@@ -410,7 +412,7 @@ export function FinanceForm({
         </label>
       </div>
 
-      {mode === "create" ? (
+      {mode === "create" && !isRecurringExpense ? (
         <section className={`history-seed history-seed--${kindTheme}`}>
           <div className="history-seed__header">
             <div>

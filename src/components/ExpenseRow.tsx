@@ -92,7 +92,13 @@ export function ExpenseRow({
 
           <div className="entry-card__amounts">
             <strong>{formatCurrency(item.amount)}</strong>
-            <span>{item.dueDate ? `Vence ${formatDate(item.dueDate)}` : "Sin cuotas pendientes"}</span>
+            <span>
+              {item.kind === "recurring_expense"
+                ? "Sin vencimiento fijo"
+                : item.dueDate
+                  ? `Vence ${formatDate(item.dueDate)}`
+                  : "Sin cuotas pendientes"}
+            </span>
           </div>
         </div>
 

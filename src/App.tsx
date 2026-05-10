@@ -112,6 +112,7 @@ export default function App() {
   const activeFixedItems = financeState.items.filter((item) => item.kind === "fixed_expense" && !item.isCompleted);
   const activeRecurringItems = financeState.items.filter((item) => item.kind === "recurring_expense" && !item.isCompleted);
   const categorySummaries = getDashboardCategorySummaries(financeState);
+  const visibleCategorySummaries = categorySummaries.filter((summary) => summary.activeCount > 0);
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
 
@@ -128,7 +129,7 @@ export default function App() {
           currentInstallmentNumber: "1",
           loanPlanMode: "fixed",
           installmentPlan: [],
-          historicalPaymentsCount: nextKind === "loan" ? "0" : current.historicalPaymentsCount,
+          historicalPaymentsCount: nextKind === "loan" || nextKind === "recurring_expense" ? "0" : current.historicalPaymentsCount,
           registerCurrentCycleAsPaid: "no",
           currentCyclePaidAt: todayKey()
         };
@@ -251,7 +252,7 @@ export default function App() {
         (current) => {
           let nextState = upsertItem(current, item);
 
-          if (formMode === "create") {
+          if (formMode === "create" && draft.kind !== "recurring_expense") {
             nextState = seedInitialHistory(nextState, item, draft);
 
             if (draft.registerCurrentCycleAsPaid === "yes") {
@@ -828,13 +829,13 @@ export default function App() {
                               <strong>{getRecurrenceLabel(item.recurrence)}</strong>
                             </div>
                             <div>
-                              <span>Vence</span>
-                              <strong>{item.dueDate ? formatDate(item.dueDate) : "Sin fecha"}</strong>
+                              <span>Seguimiento</span>
+                              <strong>Sin vencimiento fijo</strong>
                             </div>
                           </div>
 
                           <p className="summary-expense-card__note">
-                            Categoria flexible para gastos que vuelven seguido y quieres seguir como bloque propio.
+                            Categoria flexible para gastos que reaparecen y quieres controlar como una bolsa mensual propia.
                           </p>
                         </article>
                       );
@@ -936,17 +937,17 @@ export default function App() {
                 <p className="eyebrow">Dashboard</p>
                 <h2>Resumen por categoria</h2>
               </div>
-              <span className="status-pill status-pill--neutral">{categorySummaries.length} categoria(s) activas</span>
+              <span className="status-pill status-pill--neutral">{visibleCategorySummaries.length} categoria(s) activas</span>
             </div>
 
-            {categorySummaries.length === 0 ? (
+            {visibleCategorySummaries.length === 0 ? (
               <div className="empty-state">
                 <h3>Aun no hay categorias para resumir</h3>
                 <p>Cuando empieces a cargar prestamos o gastos, aqui tendras el panorama por categoria y por tipo.</p>
               </div>
             ) : (
               <div className="dashboard-category-grid">
-                {categorySummaries.map((summary) => {
+                {visibleCategorySummaries.map((summary) => {
                   const kindTheme = getKindTheme(summary.kind);
                   const entityPreview = summary.entities.slice(0, 3).join(" · ");
                   const titlePreview = summary.itemTitles.slice(0, 3).join(" · ");
@@ -980,7 +981,13 @@ export default function App() {
 
                       <div className="dashboard-category-card__meta">
                         <p>{entityPreview || titlePreview || "Sin entidades cargadas aun"}</p>
-                        <p>{summary.nextDueDate ? `Proximo vencimiento: ${formatDate(summary.nextDueDate)}` : "Sin vencimientos pendientes"}</p>
+                        <p>
+                          {summary.kind === "recurring_expense"
+                            ? "Sin vencimiento fijo: se mueve segun lo que vayas consumiendo este mes."
+                            : summary.nextDueDate
+                              ? `Proximo vencimiento: ${formatDate(summary.nextDueDate)}`
+                              : "Sin vencimientos pendientes"}
+                        </p>
                       </div>
 
                       {summary.kind === "loan" ? (

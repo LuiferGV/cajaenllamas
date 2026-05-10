@@ -47,7 +47,11 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
                   <strong>{formatCurrency(entry.amount)}</strong>
                   <p>
                     {formatDate(entry.paidAt)}
-                    {entry.nextDueDate ? ` - Proximo ${formatDate(entry.nextDueDate)}` : " - Ciclo cerrado"}
+                    {entry.kind === "recurring_expense"
+                      ? " - Sin vencimiento fijo"
+                      : entry.nextDueDate
+                        ? ` - Proximo ${formatDate(entry.nextDueDate)}`
+                        : " - Ciclo cerrado"}
                   </p>
                 </div>
               </article>

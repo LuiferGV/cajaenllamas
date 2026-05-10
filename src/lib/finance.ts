@@ -46,6 +46,24 @@ export interface DashboardCategorySummary {
   itemTitles: string[];
 }
 
+const RECURRING_CATEGORY_ALIASES: Record<string, string> = {
+  super: "Supermercado",
+  supermercado: "Supermercado",
+  "super-mercado": "Supermercado",
+  "mini-super": "Supermercado",
+  farmacia: "Farmacia",
+  "punto-farma": "Farmacia",
+  "farmacia-punto-farma": "Farmacia",
+  combustible: "Combustible",
+  nafta: "Combustible",
+  gasoil: "Combustible",
+  gimnasio: "Gimnasio",
+  gym: "Gimnasio",
+  bebe: "Bebe",
+  "gastos-del-bebe": "Bebe",
+  "gastos-bebe": "Bebe"
+};
+
 export const RECURRENCE_OPTIONS: Array<{ value: Recurrence; label: string; months: number }> = [
   { value: "monthly", label: "Mensual", months: 1 },
   { value: "bimonthly", label: "Bimestral", months: 2 },
@@ -140,6 +158,37 @@ export function buildDisplayName(entityName: string, conceptName: string) {
   return concept || entity || "Registro sin nombre";
 }
 
+function normalizeLookupKey(label: string) {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function toTitleCaseLabel(label: string) {
+  return label
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function normalizeConceptName(kind: EntryKind, label: string) {
+  const trimmedLabel = label.trim().replace(/\s+/g, " ");
+  if (!trimmedLabel) return "";
+
+  const lookupKey = normalizeLookupKey(trimmedLabel);
+  if (kind === "recurring_expense") {
+    return RECURRING_CATEGORY_ALIASES[lookupKey] ?? toTitleCaseLabel(trimmedLabel);
+  }
+
+  return toTitleCaseLabel(trimmedLabel);
+}
+
 type DisplayEntry = {
   name?: string;
   itemName?: string;
@@ -231,6 +280,10 @@ export function isExpense(item: Pick<FinanceItem, "kind">) {
   return item.kind === "fixed_expense" || item.kind === "variable_expense" || item.kind === "recurring_expense";
 }
 
+function getEffectiveDueDate(item: Pick<FinanceItem, "kind" | "dueDate">) {
+  return item.kind === "recurring_expense" ? null : item.dueDate;
+}
+
 export function buildItemFromDraft(
   draft: FinanceDraft,
   itemId?: string,
@@ -247,7 +300,7 @@ export function buildItemFromDraft(
         : parseCount(draft.installmentsPaid)
       : 0;
   const entityName = draft.entityName.trim();
-  const conceptName = draft.conceptName.trim();
+  const conceptName = normalizeConceptName(draft.kind, draft.conceptName);
   const installmentPlan =
     draft.kind === "loan" && loanPlanMode === "schedule" ? toLoanInstallmentPlanEntries(draft.installmentPlan) : null;
   const currentScheduledInstallment =
@@ -261,7 +314,9 @@ export function buildItemFromDraft(
       ? installmentsTotal !== null && (installmentsPaid >= installmentsTotal || (loanPlanMode === "schedule" && !currentScheduledInstallment))
       : false;
   const dueDate =
-    draft.kind === "loan" && loanPlanMode === "schedule"
+    draft.kind === "recurring_expense"
+      ? null
+      : draft.kind === "loan" && loanPlanMode === "schedule"
       ? isCompleted
         ? null
         : currentScheduledInstallment?.dueDate ?? draft.dueDate
@@ -323,6 +378,7 @@ export function validateDraft(draft: FinanceDraft) {
     return draft.kind === "loan" ? "Escribe el tipo o destino del prestamo." : "Escribe el tipo de gasto.";
   }
   if (parseAmount(draft.amount) <= 0) return "El monto debe ser mayor a cero.";
+  if (draft.kind === "recurring_expense") return null;
   if (draft.registerCurrentCycleAsPaid === "yes" && !draft.currentCyclePaidAt) {
     return "Selecciona la fecha del pago ya realizado.";
   }
@@ -461,11 +517,12 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
   const item = state.items.find((entry) => entry.id === itemId);
   if (!item || item.isCompleted) return state;
 
+  const isRecurringExpense = item.kind === "recurring_expense";
   const currentScheduledInstallment =
     isLoan(item) && item.loanPlanMode === "schedule" && item.installmentPlan?.length
       ? item.installmentPlan[item.installmentsPaid] ?? null
       : null;
-  const currentDueDate = currentScheduledInstallment?.dueDate ?? item.dueDate ?? paidAt;
+  const currentDueDate = isRecurringExpense ? paidAt : currentScheduledInstallment?.dueDate ?? item.dueDate ?? paidAt;
   const currentAmount = currentScheduledInstallment?.amount ?? item.amount;
   const nextInstallmentsPaid = isLoan(item) ? item.installmentsPaid + 1 : item.installmentsPaid;
   const nextScheduledInstallment =
@@ -477,7 +534,9 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
       ? nextInstallmentsPaid >= item.installmentsTotal || (item.loanPlanMode === "schedule" && !nextScheduledInstallment)
       : false;
   const nextDueDate =
-    item.loanPlanMode === "schedule"
+    isRecurringExpense
+      ? null
+      : item.loanPlanMode === "schedule"
       ? completesLoan
         ? null
         : nextScheduledInstallment?.dueDate ?? null
@@ -509,7 +568,7 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
           ? {
               ...entry,
               amount: item.loanPlanMode === "schedule" ? nextScheduledInstallment?.amount ?? entry.amount : entry.amount,
-              dueDate: nextDueDate,
+              dueDate: isRecurringExpense ? null : nextDueDate,
               updatedAt: paidAt,
               lastPaidAt: paidAt,
               installmentsPaid: nextInstallmentsPaid,
@@ -622,8 +681,8 @@ export function sortItems(left: FinanceItem, right: FinanceItem) {
     return left.isCompleted ? 1 : -1;
   }
 
-  const leftDue = left.dueDate ?? "9999-12-31";
-  const rightDue = right.dueDate ?? "9999-12-31";
+  const leftDue = getEffectiveDueDate(left) ?? "9999-12-31";
+  const rightDue = getEffectiveDueDate(right) ?? "9999-12-31";
   const dateCompare = leftDue.localeCompare(rightDue);
   if (dateCompare !== 0) return dateCompare;
   return left.name.localeCompare(right.name);
@@ -654,9 +713,14 @@ export function getMonthlyCommitment(items: FinanceItem[]) {
 
 export function getPendingThisMonth(items: FinanceItem[], baseDate = new Date()) {
   const { end } = getCurrentMonthRange(baseDate);
-  return getActiveItems(items)
-    .filter((item) => item.dueDate !== null && item.dueDate <= end)
-    .reduce((sum, item) => sum + item.amount, 0);
+  return getActiveItems(items).reduce((sum, item) => {
+    if (item.kind === "recurring_expense") {
+      return item.lastPaidAt && isDateInCurrentMonth(item.lastPaidAt, baseDate) ? sum : sum + item.amount;
+    }
+
+    const dueDate = getEffectiveDueDate(item);
+    return dueDate !== null && dueDate <= end ? sum + item.amount : sum;
+  }, 0);
 }
 
 export function getPaidThisMonth(history: PaymentHistoryEntry[], baseDate = new Date()) {
@@ -668,7 +732,10 @@ export function getPaidThisMonth(history: PaymentHistoryEntry[], baseDate = new 
 function getOverdueAmount(items: FinanceItem[], baseDate = new Date()) {
   const today = formatDateKey(baseDate);
   return getActiveItems(items)
-    .filter((item) => item.dueDate !== null && item.dueDate < today)
+    .filter((item) => {
+      const dueDate = getEffectiveDueDate(item);
+      return dueDate !== null && dueDate < today;
+    })
     .reduce((sum, item) => sum + item.amount, 0);
 }
 
@@ -682,7 +749,10 @@ function getSegmentMetrics(state: FinanceState, kind: EntryKind, baseDate = new 
     pendingAmount: getPendingThisMonth(activeItems, baseDate),
     monthlyBase: getMonthlyCommitment(activeItems),
     activeCount: activeItems.length,
-    overdueCount: activeItems.filter((item) => item.dueDate !== null && item.dueDate < formatDateKey(baseDate)).length
+    overdueCount: activeItems.filter((item) => {
+      const dueDate = getEffectiveDueDate(item);
+      return dueDate !== null && dueDate < formatDateKey(baseDate);
+    }).length
   };
 }
 
@@ -697,7 +767,11 @@ export function getDashboardMetrics(state: FinanceState, baseDate = new Date()):
       pendingAmount: getPendingThisMonth(state.items, baseDate),
       monthlyBase: getMonthlyCommitment(state.items),
       activeCount: getActiveItems(state.items).length,
-      overdueCount: state.items.filter((item) => !item.isCompleted && item.dueDate !== null && item.dueDate < formatDateKey(baseDate)).length
+      overdueCount: state.items.filter((item) => {
+        if (item.isCompleted) return false;
+        const dueDate = getEffectiveDueDate(item);
+        return dueDate !== null && dueDate < formatDateKey(baseDate);
+      }).length
     },
     loans: {
       ...loanMetricsBase,
@@ -716,12 +790,7 @@ export function getDashboardMetrics(state: FinanceState, baseDate = new Date()):
 }
 
 function normalizeCategoryKey(label: string) {
-  return label
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return normalizeLookupKey(label);
 }
 
 function getDashboardCategoryDescriptor(
@@ -738,10 +807,13 @@ function getDashboardCategoryDescriptor(
   }
 
   const baseLabel =
-    entry.conceptName.trim() ||
-    ("name" in entry ? entry.name.trim() : "") ||
-    ("itemName" in entry ? entry.itemName.trim() : "") ||
-    getKindLabel(entry.kind);
+    normalizeConceptName(
+      entry.kind,
+      entry.conceptName.trim() ||
+        ("name" in entry ? entry.name.trim() : "") ||
+        ("itemName" in entry ? entry.itemName.trim() : "") ||
+        getKindLabel(entry.kind)
+    );
 
   return {
     key: `${entry.kind}:${normalizeCategoryKey(baseLabel)}`,
@@ -757,18 +829,20 @@ export function getDashboardCategorySummaries(state: FinanceState, baseDate = ne
   for (const item of getActiveItems(state.items)) {
     const descriptor = getDashboardCategoryDescriptor(item);
     const existing = summaryMap.get(descriptor.key);
+    const dueDate = getEffectiveDueDate(item);
+    const pendingAmount = getPendingThisMonth([item], baseDate);
 
     if (existing) {
       existing.activeCount += 1;
-      existing.pendingAmount += item.amount;
+      existing.pendingAmount += pendingAmount;
       existing.monthlyBase += item.amount / recurrenceMonths(item.recurrence);
       existing.nextDueDate =
         existing.nextDueDate === null
-          ? item.dueDate
-          : item.dueDate === null
+          ? dueDate
+          : dueDate === null
             ? existing.nextDueDate
-            : item.dueDate < existing.nextDueDate
-              ? item.dueDate
+            : dueDate < existing.nextDueDate
+              ? dueDate
               : existing.nextDueDate;
       if (!existing.entities.includes(item.entityName) && item.entityName.trim()) {
         existing.entities.push(item.entityName);
@@ -785,9 +859,9 @@ export function getDashboardCategorySummaries(state: FinanceState, baseDate = ne
       kind: descriptor.kind,
       activeCount: 1,
       paidAmount: 0,
-      pendingAmount: item.amount,
+      pendingAmount,
       monthlyBase: item.amount / recurrenceMonths(item.recurrence),
-      nextDueDate: item.dueDate,
+      nextDueDate: dueDate,
       entities: item.entityName.trim() ? [item.entityName] : [],
       itemTitles: [getDisplayTitle(item)]
     });
@@ -835,21 +909,34 @@ export function describeItemStatus(item: FinanceItem, baseDate = todayKey()) {
     };
   }
 
-  if (item.dueDate === null) {
+  if (item.kind === "recurring_expense") {
+    return item.lastPaidAt && isDateInCurrentMonth(item.lastPaidAt, parseDateKey(baseDate))
+      ? {
+          tone: "success" as const,
+          label: "Pagado este mes"
+        }
+      : {
+          tone: "soon" as const,
+          label: "Pendiente del ciclo"
+        };
+  }
+
+  const dueDate = getEffectiveDueDate(item);
+  if (dueDate === null) {
     return {
       tone: "calm" as const,
       label: "Sin fecha"
     };
   }
 
-  if (item.dueDate < baseDate) {
+  if (dueDate < baseDate) {
     return {
       tone: "critical" as const,
       label: "Vencido"
     };
   }
 
-  if (item.dueDate === baseDate) {
+  if (dueDate === baseDate) {
     return {
       tone: "today" as const,
       label: "Vence hoy"
@@ -857,7 +944,7 @@ export function describeItemStatus(item: FinanceItem, baseDate = todayKey()) {
   }
 
   const currentMonthEnd = getCurrentMonthRange(parseDateKey(baseDate)).end;
-  if (item.dueDate <= currentMonthEnd) {
+  if (dueDate <= currentMonthEnd) {
     return {
       tone: "soon" as const,
       label: "Este mes"
@@ -886,7 +973,7 @@ export function filterItems(items: FinanceItem[], search: string, kind: EntryKin
 }
 
 export function getNextActiveItem(items: FinanceItem[]) {
-  return items.find((item) => !item.isCompleted && item.dueDate !== null) ?? null;
+  return items.find((item) => !item.isCompleted && getEffectiveDueDate(item) !== null) ?? null;
 }
 
 export function getCompletionRatio(metrics: LoanMetrics) {
@@ -895,7 +982,10 @@ export function getCompletionRatio(metrics: LoanMetrics) {
 }
 
 export function getOverdueCount(items: FinanceItem[], baseDate = new Date()) {
-  return getActiveItems(items).filter((item) => item.dueDate !== null && item.dueDate < formatDateKey(baseDate)).length;
+  return getActiveItems(items).filter((item) => {
+    const dueDate = getEffectiveDueDate(item);
+    return dueDate !== null && dueDate < formatDateKey(baseDate);
+  }).length;
 }
 
 export function getOverdueAmountForState(state: FinanceState, baseDate = new Date()) {
