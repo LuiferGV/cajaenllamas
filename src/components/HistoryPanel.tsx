@@ -24,7 +24,7 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
         </div>
       ) : (
         <div className="history-list">
-          {history.slice(0, 8).map((entry) => {
+          {history.map((entry) => {
             const displayTitle = getDisplayTitle(entry);
             const displayEntity = getDisplayEntity(entry);
 
