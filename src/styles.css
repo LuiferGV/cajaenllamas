@@ -1134,7 +1134,40 @@ select {
   background: linear-gradient(180deg, rgba(89, 173, 255, 0.1), rgba(255, 255, 255, 0.02));
 }
 
+.summary-expenses {
+  --summary-accent: #ffca6d;
+  --summary-soft: rgba(255, 202, 109, 0.1);
+  --summary-border: rgba(255, 202, 109, 0.18);
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid var(--summary-border);
+  background: linear-gradient(180deg, var(--summary-soft), rgba(255, 255, 255, 0.02));
+}
+
+.summary-expenses--variable {
+  --summary-accent: #ffca6d;
+  --summary-soft: rgba(255, 202, 109, 0.1);
+  --summary-border: rgba(255, 202, 109, 0.18);
+}
+
+.summary-expenses--fixed {
+  --summary-accent: #60e6c7;
+  --summary-soft: rgba(96, 230, 199, 0.1);
+  --summary-border: rgba(96, 230, 199, 0.18);
+}
+
 .summary-loans__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summary-expenses__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1148,7 +1181,18 @@ select {
   letter-spacing: -0.04em;
 }
 
+.summary-expenses__header h3 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.04em;
+}
+
 .summary-loans__list {
+  display: grid;
+  gap: 12px;
+}
+
+.summary-expenses__list {
   display: grid;
   gap: 12px;
 }
@@ -1164,7 +1208,24 @@ select {
     rgba(10, 19, 29, 0.72);
 }
 
+.summary-expense-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid var(--summary-border);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--summary-accent) 16%, transparent), transparent 28%),
+    rgba(10, 19, 29, 0.72);
+}
+
 .summary-loan-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.summary-expense-card__identity {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1175,7 +1236,18 @@ select {
   gap: 3px;
 }
 
+.summary-expense-card__copy {
+  display: grid;
+  gap: 3px;
+}
+
 .summary-loan-card__copy strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.summary-expense-card__copy strong {
   font-family: "Sora", sans-serif;
   font-size: 1rem;
   letter-spacing: -0.03em;
@@ -1186,9 +1258,20 @@ select {
   color: var(--text-main);
 }
 
+.summary-expense-card__copy p {
+  margin: 0;
+  color: var(--text-main);
+}
+
 .summary-loan-card__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-expense-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1196,6 +1279,13 @@ select {
   padding: 12px 13px;
   border-radius: 18px;
   border: 1px solid rgba(89, 173, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.summary-expense-card__stats div {
+  padding: 12px 13px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--summary-accent) 22%, transparent);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -1209,13 +1299,55 @@ select {
   letter-spacing: 0.08em;
 }
 
+.summary-expense-card__stats span {
+  display: block;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--summary-accent) 58%, white 42%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .summary-loan-card__stats strong {
   font-family: "Sora", sans-serif;
   font-size: 1rem;
   letter-spacing: -0.03em;
 }
 
+.summary-expense-card__stats strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
 .summary-loan-card__due {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.summary-expense-card__note {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.summary-focus {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(146, 187, 214, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.summary-focus__copy h3 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.summary-focus__detail {
   margin: 0;
   color: var(--text-main);
 }
@@ -1662,6 +1794,7 @@ select {
   .kind-selector,
   .category-card__stats,
   .summary-loan-card__stats,
+  .summary-expense-card__stats,
   .field-grid {
     grid-template-columns: 1fr;
   }
@@ -1687,7 +1820,9 @@ select {
 
   .entry-card__identity,
   .history-item__identity,
-  .logo-preview {
+  .logo-preview,
+  .summary-loan-card__identity,
+  .summary-expense-card__identity {
     align-items: flex-start;
   }
 

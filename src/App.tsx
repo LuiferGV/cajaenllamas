@@ -26,6 +26,7 @@ import {
   getInstallmentsAfterCurrent,
   getNextActiveItem,
   getRemainingInstallments,
+  getRecurrenceLabel,
   isLoan,
   parseAmount,
   registerPayment,
@@ -104,6 +105,8 @@ export default function App() {
   const overdueCount = metrics.overview.overdueCount;
   const nextDueItem = getNextActiveItem(financeState.items);
   const activeLoanItems = financeState.items.filter((item) => item.kind === "loan" && !item.isCompleted);
+  const activeVariableItems = financeState.items.filter((item) => item.kind === "variable_expense" && !item.isCompleted);
+  const activeFixedItems = financeState.items.filter((item) => item.kind === "fixed_expense" && !item.isCompleted);
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
   const dataSourceLabel = dataSource === "firebase" ? getFirebaseStateLabel(firebaseState) : "Modo local";
@@ -600,29 +603,123 @@ export default function App() {
             )}
           </section>
 
-          <table className="summary-table">
-            <tbody>
-              <tr>
-                <th>Gasto variable</th>
-                <td>{formatCurrency(metrics.variableExpenses.monthlyBase)}</td>
-                <td>Base editable para la factura actual del ciclo.</td>
-              </tr>
-              <tr>
-                <th>Gasto fijo</th>
-                <td>{formatCurrency(metrics.fixedExpenses.monthlyBase)}</td>
-                <td>Compromisos permanentes que siguen mes a mes.</td>
-              </tr>
-              <tr>
-                <th>Proximo foco</th>
-                <td>{nextDueItem ? getDisplayTitle(nextDueItem) : "Sin registros"}</td>
-                <td>
-                  {nextDueItem?.dueDate
-                    ? `${getDisplayEntity(nextDueItem)} - vence ${formatDate(nextDueItem.dueDate)}`
-                    : "Crea tu primer compromiso."}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <section className="summary-expenses summary-expenses--variable">
+            <div className="summary-expenses__header">
+              <div>
+                <p className="eyebrow">Gastos variables</p>
+                <h3>Detalle por factura</h3>
+              </div>
+              <span className="status-pill status-pill--section status-pill--section-variable">{activeVariableItems.length} activos</span>
+            </div>
+
+            {activeVariableItems.length === 0 ? (
+              <div className="empty-state empty-state--compact">
+                <h3>No hay gastos variables activos</h3>
+                <p>Cuando cargues servicios como agua o luz, aqui veras cada uno por separado.</p>
+              </div>
+            ) : (
+              <div className="summary-expenses__list">
+                {activeVariableItems.map((item) => {
+                  const displayTitle = getDisplayTitle(item);
+                  const displayEntity = getDisplayEntity(item);
+
+                  return (
+                    <article key={item.id} className="summary-expense-card summary-expense-card--variable">
+                      <div className="summary-expense-card__identity">
+                        <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                        <div className="summary-expense-card__copy">
+                          <strong>{displayTitle}</strong>
+                          <p>{displayEntity}</p>
+                        </div>
+                      </div>
+
+                      <div className="summary-expense-card__stats">
+                        <div>
+                          <span>Monto actual</span>
+                          <strong>{formatCurrency(item.amount)}</strong>
+                        </div>
+                        <div>
+                          <span>Recurrencia</span>
+                          <strong>{getRecurrenceLabel(item.recurrence)}</strong>
+                        </div>
+                        <div>
+                          <span>Vence</span>
+                          <strong>{item.dueDate ? formatDate(item.dueDate) : "Sin fecha"}</strong>
+                        </div>
+                      </div>
+
+                      <p className="summary-expense-card__note">Puedes cambiar el monto del siguiente ciclo cuando llegue la nueva factura.</p>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="summary-expenses summary-expenses--fixed">
+            <div className="summary-expenses__header">
+              <div>
+                <p className="eyebrow">Gastos fijos</p>
+                <h3>Detalle por compromiso</h3>
+              </div>
+              <span className="status-pill status-pill--section status-pill--section-fixed">{activeFixedItems.length} activos</span>
+            </div>
+
+            {activeFixedItems.length === 0 ? (
+              <div className="empty-state empty-state--compact">
+                <h3>No hay gastos fijos activos</h3>
+                <p>Cuando cargues internet, ninera o domestica, aqui veras cada uno por separado.</p>
+              </div>
+            ) : (
+              <div className="summary-expenses__list">
+                {activeFixedItems.map((item) => {
+                  const displayTitle = getDisplayTitle(item);
+                  const displayEntity = getDisplayEntity(item);
+
+                  return (
+                    <article key={item.id} className="summary-expense-card summary-expense-card--fixed">
+                      <div className="summary-expense-card__identity">
+                        <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                        <div className="summary-expense-card__copy">
+                          <strong>{displayTitle}</strong>
+                          <p>{displayEntity}</p>
+                        </div>
+                      </div>
+
+                      <div className="summary-expense-card__stats">
+                        <div>
+                          <span>Monto base</span>
+                          <strong>{formatCurrency(item.amount)}</strong>
+                        </div>
+                        <div>
+                          <span>Recurrencia</span>
+                          <strong>{getRecurrenceLabel(item.recurrence)}</strong>
+                        </div>
+                        <div>
+                          <span>Vence</span>
+                          <strong>{item.dueDate ? formatDate(item.dueDate) : "Sin fecha"}</strong>
+                        </div>
+                      </div>
+
+                      <p className="summary-expense-card__note">Compromiso estable que sigue activo mes a mes hasta que lo cierres o lo borres.</p>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="summary-focus">
+            <div className="summary-focus__copy">
+              <p className="eyebrow">Proximo foco</p>
+              <h3>{nextDueItem ? getDisplayTitle(nextDueItem) : "Sin registros"}</h3>
+            </div>
+            <p className="summary-focus__detail">
+              {nextDueItem?.dueDate
+                ? `${getDisplayEntity(nextDueItem)} - vence ${formatDate(nextDueItem.dueDate)}`
+                : "Crea tu primer compromiso para empezar a organizar el mes."}
+            </p>
+          </section>
         </article>
 
         <HistoryPanel history={financeState.history} />
