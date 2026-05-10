@@ -1306,7 +1306,7 @@ select {
 
 .category-card__stats div {
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
   border-radius: 18px;
   border: 1px solid var(--section-border);
   background: linear-gradient(180deg, color-mix(in srgb, var(--section-accent) 16%, transparent), rgba(255, 255, 255, 0.03));
@@ -1326,11 +1326,10 @@ select {
 .category-card__stats strong {
   display: block;
   min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: nowrap;
   font-family: "Sora", sans-serif;
-  font-size: clamp(1rem, 1.8vw, 1.2rem);
-  letter-spacing: -0.04em;
+  font-size: clamp(0.94rem, 1.35vw, 1.14rem);
+  letter-spacing: -0.06em;
   line-height: 1.06;
   color: color-mix(in srgb, var(--section-accent) 24%, white 76%);
 }
