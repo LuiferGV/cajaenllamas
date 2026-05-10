@@ -30,6 +30,20 @@ export interface DashboardMetrics {
   loans: LoanMetrics;
   fixedExpenses: SegmentMetrics;
   variableExpenses: SegmentMetrics;
+  recurringExpenses: SegmentMetrics;
+}
+
+export interface DashboardCategorySummary {
+  key: string;
+  label: string;
+  kind: EntryKind;
+  activeCount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  monthlyBase: number;
+  nextDueDate: string | null;
+  entities: string[];
+  itemTitles: string[];
 }
 
 export const RECURRENCE_OPTIONS: Array<{ value: Recurrence; label: string; months: number }> = [
@@ -43,12 +57,14 @@ export const RECURRENCE_OPTIONS: Array<{ value: Recurrence; label: string; month
 export const KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
   { value: "loan", label: "Prestamo" },
   { value: "variable_expense", label: "Gasto variable" },
-  { value: "fixed_expense", label: "Gasto fijo" }
+  { value: "fixed_expense", label: "Gasto fijo" },
+  { value: "recurring_expense", label: "Gasto recurrente" }
 ];
 
 export function getKindTheme(kind: EntryKind) {
   if (kind === "loan") return "loan" as const;
   if (kind === "fixed_expense") return "fixed" as const;
+  if (kind === "recurring_expense") return "recurring" as const;
   return "variable" as const;
 }
 
@@ -212,7 +228,7 @@ export function isLoan(item: Pick<FinanceItem, "kind">) {
 }
 
 export function isExpense(item: Pick<FinanceItem, "kind">) {
-  return item.kind === "fixed_expense" || item.kind === "variable_expense";
+  return item.kind === "fixed_expense" || item.kind === "variable_expense" || item.kind === "recurring_expense";
 }
 
 export function buildItemFromDraft(
@@ -694,8 +710,121 @@ export function getDashboardMetrics(state: FinanceState, baseDate = new Date()):
       )
     },
     fixedExpenses: getSegmentMetrics(state, "fixed_expense", baseDate),
-    variableExpenses: getSegmentMetrics(state, "variable_expense", baseDate)
+    variableExpenses: getSegmentMetrics(state, "variable_expense", baseDate),
+    recurringExpenses: getSegmentMetrics(state, "recurring_expense", baseDate)
   };
+}
+
+function normalizeCategoryKey(label: string) {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getDashboardCategoryDescriptor(
+  entry:
+    | Pick<FinanceItem, "kind" | "name" | "conceptName" | "entityName">
+    | Pick<PaymentHistoryEntry, "kind" | "itemName" | "conceptName" | "entityName">
+) {
+  if (entry.kind === "loan") {
+    return {
+      key: "loan:prestamos",
+      label: "Prestamos",
+      kind: entry.kind
+    };
+  }
+
+  const baseLabel =
+    entry.conceptName.trim() ||
+    ("name" in entry ? entry.name.trim() : "") ||
+    ("itemName" in entry ? entry.itemName.trim() : "") ||
+    getKindLabel(entry.kind);
+
+  return {
+    key: `${entry.kind}:${normalizeCategoryKey(baseLabel)}`,
+    label: baseLabel,
+    kind: entry.kind
+  };
+}
+
+export function getDashboardCategorySummaries(state: FinanceState, baseDate = new Date()) {
+  const currentMonthPrefix = formatDateKey(baseDate).slice(0, 7);
+  const summaryMap = new Map<string, DashboardCategorySummary>();
+
+  for (const item of getActiveItems(state.items)) {
+    const descriptor = getDashboardCategoryDescriptor(item);
+    const existing = summaryMap.get(descriptor.key);
+
+    if (existing) {
+      existing.activeCount += 1;
+      existing.pendingAmount += item.amount;
+      existing.monthlyBase += item.amount / recurrenceMonths(item.recurrence);
+      existing.nextDueDate =
+        existing.nextDueDate === null
+          ? item.dueDate
+          : item.dueDate === null
+            ? existing.nextDueDate
+            : item.dueDate < existing.nextDueDate
+              ? item.dueDate
+              : existing.nextDueDate;
+      if (!existing.entities.includes(item.entityName) && item.entityName.trim()) {
+        existing.entities.push(item.entityName);
+      }
+      if (!existing.itemTitles.includes(getDisplayTitle(item))) {
+        existing.itemTitles.push(getDisplayTitle(item));
+      }
+      continue;
+    }
+
+    summaryMap.set(descriptor.key, {
+      key: descriptor.key,
+      label: descriptor.label,
+      kind: descriptor.kind,
+      activeCount: 1,
+      paidAmount: 0,
+      pendingAmount: item.amount,
+      monthlyBase: item.amount / recurrenceMonths(item.recurrence),
+      nextDueDate: item.dueDate,
+      entities: item.entityName.trim() ? [item.entityName] : [],
+      itemTitles: [getDisplayTitle(item)]
+    });
+  }
+
+  for (const payment of state.history) {
+    if (!payment.paidAt.startsWith(currentMonthPrefix)) continue;
+
+    const descriptor = getDashboardCategoryDescriptor(payment);
+    const existing = summaryMap.get(descriptor.key);
+
+    if (existing) {
+      existing.paidAmount += payment.amount;
+      continue;
+    }
+
+    summaryMap.set(descriptor.key, {
+      key: descriptor.key,
+      label: descriptor.label,
+      kind: descriptor.kind,
+      activeCount: 0,
+      paidAmount: payment.amount,
+      pendingAmount: 0,
+      monthlyBase: 0,
+      nextDueDate: payment.nextDueDate,
+      entities: payment.entityName.trim() ? [payment.entityName] : [],
+      itemTitles: [getDisplayTitle(payment)]
+    });
+  }
+
+  return Array.from(summaryMap.values()).sort((left, right) => {
+    if (left.kind === "loan" && right.kind !== "loan") return -1;
+    if (left.kind !== "loan" && right.kind === "loan") return 1;
+    if (right.monthlyBase !== left.monthlyBase) return right.monthlyBase - left.monthlyBase;
+    if (right.pendingAmount !== left.pendingAmount) return right.pendingAmount - left.pendingAmount;
+    return left.label.localeCompare(right.label);
+  });
 }
 
 export function describeItemStatus(item: FinanceItem, baseDate = todayKey()) {

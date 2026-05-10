@@ -51,6 +51,7 @@ export function ExpenseRow({
   const showPayButton = !item.isCompleted;
   const kindTheme = getKindTheme(item.kind);
   const hasLoanSchedule = hasScheduledLoanPlan(item);
+  const canEditCycleAmount = (item.kind === "variable_expense" || item.kind === "recurring_expense") && !item.isCompleted;
   const [amountDraft, setAmountDraft] = useState(String(item.amount));
   const canSaveAmount = parseAmount(amountDraft) > 0 && parseAmount(amountDraft) !== item.amount;
 
@@ -123,14 +124,16 @@ export function ExpenseRow({
                   : `Pendientes: ${remainingInstallments ?? 0} con esta incluida. Despues quedan ${installmentsAfterCurrent ?? 0}.`
               : item.kind === "variable_expense"
                 ? "Monto editable al cambiar la factura"
+                : item.kind === "recurring_expense"
+                  ? "Categoria recurrente editable para seguir combustible, gimnasio, farmacia o super por separado"
                 : "Gasto recurrente sin fecha de cierre"}
           </span>
         </div>
 
-        {item.kind === "variable_expense" && !item.isCompleted ? (
+        {canEditCycleAmount ? (
           <div className="inline-editor">
             <label className="inline-editor__field">
-              <span>Monto del ciclo actual</span>
+              <span>{item.kind === "recurring_expense" ? "Monto de esta categoria" : "Monto del ciclo actual"}</span>
               <input type="text" inputMode="numeric" value={amountDraft} onChange={(event) => setAmountDraft(event.target.value)} />
             </label>
             <button

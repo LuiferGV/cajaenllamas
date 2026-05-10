@@ -1,4 +1,4 @@
-export type EntryKind = "loan" | "fixed_expense" | "variable_expense";
+export type EntryKind = "loan" | "fixed_expense" | "variable_expense" | "recurring_expense";
 
 export type Recurrence = "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
 

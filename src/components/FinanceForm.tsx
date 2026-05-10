@@ -22,6 +22,10 @@ const KIND_COPY: Record<
   variable_expense: {
     title: "Gasto variable",
     hint: "Monto editable segun la factura"
+  },
+  recurring_expense: {
+    title: "Gasto recurrente",
+    hint: "Categoria flexible que vuelve seguido"
   }
 };
 
@@ -78,6 +82,7 @@ export function FinanceForm({
 
   const isLoan = values.kind === "loan";
   const isVariableExpense = values.kind === "variable_expense";
+  const isRecurringExpense = values.kind === "recurring_expense";
   const isScheduledLoan = isLoan && values.loanPlanMode === "schedule";
   const kindTheme = getKindTheme(values.kind);
   const companyBrand = values.entityName.trim() ? getCompanyBrand(values.entityName) : null;
@@ -107,13 +112,17 @@ export function FinanceForm({
     ? "Ej.: Itau, Continental, Coomecipar"
     : isVariableExpense
       ? "Ej.: Essap, Ande"
-      : "Ej.: Personal, Tigo, Particular";
-  const conceptLabel = isLoan ? "Tipo o destino del prestamo" : "Tipo de gasto";
+      : isRecurringExpense
+        ? "Ej.: Petrobras, Smart Fit, Punto Farma, Particular"
+        : "Ej.: Personal, Tigo, Particular";
+  const conceptLabel = isLoan ? "Tipo o destino del prestamo" : isRecurringExpense ? "Categoria o gasto recurrente" : "Tipo de gasto";
   const conceptPlaceholder = isLoan
     ? "Ej.: Auto, Electrodomesticos, Refaccion, Libre inversion"
     : isVariableExpense
       ? "Ej.: Agua, Luz"
-      : "Ej.: Internet, Domestica, Ninera";
+      : isRecurringExpense
+        ? "Ej.: Combustible, Gimnasio, Bebe, Farmacia, Super"
+        : "Ej.: Internet, Domestica, Ninera";
   const hasInstallmentPlan = values.installmentPlan.length > 0;
 
   return (
@@ -136,6 +145,8 @@ export function FinanceForm({
             : "Prestamo por cuotas: primero defines la entidad, luego para que fue el prestamo, y el sistema sigue las cuotas hasta cerrarlo."
           : isVariableExpense
             ? "Gasto variable: ideal para servicios como agua o luz, donde el monto cambia y lo ajustas en cada ciclo."
+            : isRecurringExpense
+              ? "Gasto recurrente: pensado para combustible, gimnasio, bebe, farmacia o categorias que reaparecen y quieres medir por separado."
             : "Gasto fijo: pensado para internet, domestica, ninera u otros compromisos que se repiten mes a mes."}
       </div>
 
@@ -220,6 +231,8 @@ export function FinanceForm({
                 : "Monto por cuota"
               : isVariableExpense
                 ? "Monto actual del ciclo"
+                : isRecurringExpense
+                  ? "Monto de la categoria"
                 : "Monto recurrente"}
           </span>
           <input type="text" inputMode="numeric" value={values.amount} onChange={handleFieldChange("amount")} placeholder="650000" />
@@ -387,6 +400,8 @@ export function FinanceForm({
             placeholder={
               isVariableExpense
                 ? "Ej.: cambia cada mes segun consumo."
+                : isRecurringExpense
+                  ? "Ej.: presupuesto mensual, detalle del gasto o referencia util."
                 : isLoan
                   ? "Ej.: banco, numero de operacion o detalle del prestamo."
                   : "Opcional: alias, cuenta asociada o detalle util."

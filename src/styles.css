@@ -452,7 +452,7 @@ select {
 }
 
 .category-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .workspace-grid {
@@ -467,7 +467,8 @@ select {
 }
 
 .summary-stage,
-.history-stage {
+.history-stage,
+.dashboard-stage {
   display: grid;
   gap: 20px;
   margin-top: 22px;
@@ -555,6 +556,16 @@ select {
   border-color: rgba(255, 202, 109, 0.2);
   background:
     radial-gradient(circle at top right, rgba(255, 202, 109, 0.11), transparent 24%),
+    rgba(9, 17, 27, 0.82);
+}
+
+.composer-card--recurring {
+  --kind-accent: #ff957a;
+  --kind-glow: rgba(255, 149, 122, 0.18);
+  --kind-border: rgba(255, 149, 122, 0.28);
+  border-color: rgba(255, 149, 122, 0.2);
+  background:
+    radial-gradient(circle at top right, rgba(255, 149, 122, 0.11), transparent 24%),
     rgba(9, 17, 27, 0.82);
 }
 
@@ -716,6 +727,12 @@ select {
   color: #ffe2a8;
 }
 
+.status-pill--kind-recurring {
+  background: rgba(255, 149, 122, 0.16);
+  border-color: rgba(255, 149, 122, 0.24);
+  color: #ffc7ba;
+}
+
 .status-pill--section {
   color: var(--text-strong);
 }
@@ -736,6 +753,12 @@ select {
   background: linear-gradient(135deg, rgba(255, 202, 109, 0.22), rgba(255, 202, 109, 0.08));
   border-color: rgba(255, 202, 109, 0.3);
   color: #ffe2a8;
+}
+
+.status-pill--section-recurring {
+  background: linear-gradient(135deg, rgba(255, 149, 122, 0.22), rgba(255, 149, 122, 0.08));
+  border-color: rgba(255, 149, 122, 0.3);
+  color: #ffc7ba;
 }
 
 .status-pill--critical {
@@ -844,6 +867,11 @@ select {
   color: #ffe2a8;
 }
 
+.filter-pill--recurring {
+  border-color: rgba(255, 149, 122, 0.24);
+  color: #ffc7ba;
+}
+
 .filter-pill--loan.is-active {
   background: linear-gradient(135deg, #59adff, #8ccfff);
 }
@@ -854,6 +882,10 @@ select {
 
 .filter-pill--variable.is-active {
   background: linear-gradient(135deg, #ffca6d, #ffd996);
+}
+
+.filter-pill--recurring.is-active {
+  background: linear-gradient(135deg, #ff957a, #ffc0b0);
 }
 
 .field-grid {
@@ -961,6 +993,10 @@ select {
 
 .company-logo--fallback-variable .company-logo__tile {
   background: linear-gradient(135deg, #ffd996, #fff1cf);
+}
+
+.company-logo--fallback-recurring .company-logo__tile {
+  background: linear-gradient(135deg, #ffc0b0, #fff0eb);
 }
 
 .company-logo__initials {
@@ -1185,6 +1221,10 @@ select {
   border-color: rgba(255, 202, 109, 0.18);
 }
 
+.kind-option--recurring {
+  border-color: rgba(255, 149, 122, 0.18);
+}
+
 .kind-option--loan.is-active {
   border-color: rgba(89, 173, 255, 0.34);
   background: linear-gradient(180deg, rgba(89, 173, 255, 0.18), rgba(89, 173, 255, 0.06));
@@ -1201,6 +1241,12 @@ select {
   border-color: rgba(255, 202, 109, 0.34);
   background: linear-gradient(180deg, rgba(255, 202, 109, 0.18), rgba(255, 202, 109, 0.06));
   box-shadow: 0 16px 28px rgba(255, 202, 109, 0.12);
+}
+
+.kind-option--recurring.is-active {
+  border-color: rgba(255, 149, 122, 0.34);
+  background: linear-gradient(180deg, rgba(255, 149, 122, 0.18), rgba(255, 149, 122, 0.06));
+  box-shadow: 0 16px 28px rgba(255, 149, 122, 0.12);
 }
 
 .field {
@@ -1261,6 +1307,12 @@ select {
   background: linear-gradient(180deg, rgba(255, 202, 109, 0.08), rgba(255, 255, 255, 0.03));
 }
 
+.composer-card .field--recurring input,
+.composer-card .field--recurring textarea {
+  border-color: rgba(255, 149, 122, 0.16);
+  background: linear-gradient(180deg, rgba(255, 149, 122, 0.08), rgba(255, 255, 255, 0.03));
+}
+
 .composer-card .field input:focus,
 .composer-card .field textarea:focus {
   border-color: var(--kind-border);
@@ -1313,6 +1365,11 @@ select {
   color: #ffe2a8;
 }
 
+.binary-chip--recurring.is-active {
+  background: linear-gradient(135deg, rgba(255, 149, 122, 0.22), rgba(255, 149, 122, 0.08));
+  color: #ffc7ba;
+}
+
 .recurrence-chip {
   min-height: 42px;
   padding: 0 16px;
@@ -1334,7 +1391,8 @@ select {
 
 .recurrence-chip--loan,
 .recurrence-chip--fixed,
-.recurrence-chip--variable {
+.recurrence-chip--variable,
+.recurrence-chip--recurring {
   border-color: var(--kind-border);
 }
 
@@ -1351,6 +1409,11 @@ select {
 .recurrence-chip--variable.is-active {
   background: linear-gradient(135deg, rgba(255, 202, 109, 0.22), rgba(255, 202, 109, 0.08));
   color: #ffe2a8;
+}
+
+.recurrence-chip--recurring.is-active {
+  background: linear-gradient(135deg, rgba(255, 149, 122, 0.22), rgba(255, 149, 122, 0.08));
+  color: #ffc7ba;
 }
 
 .form-actions {
@@ -1395,6 +1458,12 @@ select {
   --summary-accent: #60e6c7;
   --summary-soft: rgba(96, 230, 199, 0.1);
   --summary-border: rgba(96, 230, 199, 0.18);
+}
+
+.summary-expenses--recurring {
+  --summary-accent: #ff957a;
+  --summary-soft: rgba(255, 149, 122, 0.1);
+  --summary-border: rgba(255, 149, 122, 0.18);
 }
 
 .summary-loans__header {
@@ -1590,6 +1659,105 @@ select {
   color: var(--text-main);
 }
 
+.dashboard-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.dashboard-category-card {
+  --dashboard-accent: #59adff;
+  --dashboard-soft: rgba(89, 173, 255, 0.12);
+  --dashboard-border: rgba(89, 173, 255, 0.18);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid var(--dashboard-border);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--dashboard-accent) 18%, transparent), transparent 28%),
+    linear-gradient(180deg, var(--dashboard-soft), rgba(255, 255, 255, 0.02));
+}
+
+.dashboard-category-card--loan {
+  --dashboard-accent: #59adff;
+  --dashboard-soft: rgba(89, 173, 255, 0.12);
+  --dashboard-border: rgba(89, 173, 255, 0.18);
+}
+
+.dashboard-category-card--fixed {
+  --dashboard-accent: #60e6c7;
+  --dashboard-soft: rgba(96, 230, 199, 0.12);
+  --dashboard-border: rgba(96, 230, 199, 0.18);
+}
+
+.dashboard-category-card--variable {
+  --dashboard-accent: #ffca6d;
+  --dashboard-soft: rgba(255, 202, 109, 0.12);
+  --dashboard-border: rgba(255, 202, 109, 0.18);
+}
+
+.dashboard-category-card--recurring {
+  --dashboard-accent: #ff957a;
+  --dashboard-soft: rgba(255, 149, 122, 0.12);
+  --dashboard-border: rgba(255, 149, 122, 0.18);
+}
+
+.dashboard-category-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-category-card__header h3 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-category-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-category-card__stats div {
+  padding: 12px 13px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--dashboard-accent) 22%, transparent);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dashboard-category-card__stats span {
+  display: block;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--dashboard-accent) 58%, white 42%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dashboard-category-card__stats strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.dashboard-category-card__meta,
+.dashboard-category-card__note {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.dashboard-category-card__meta {
+  display: grid;
+  gap: 6px;
+}
+
 .summary-table {
   width: 100%;
   border-collapse: collapse;
@@ -1665,6 +1833,13 @@ select {
   --section-accent: #ffca6d;
   --section-soft: rgba(255, 202, 109, 0.14);
   --section-border: rgba(255, 202, 109, 0.26);
+  border-color: var(--section-border);
+}
+
+.category-card--recurring {
+  --section-accent: #ff957a;
+  --section-soft: rgba(255, 149, 122, 0.14);
+  --section-border: rgba(255, 149, 122, 0.26);
   border-color: var(--section-border);
 }
 
@@ -1793,6 +1968,14 @@ select {
   background: linear-gradient(180deg, #ffca6d, #ffd996);
 }
 
+.entry-card--recurring {
+  border-color: rgba(255, 149, 122, 0.18);
+}
+
+.entry-card--recurring::before {
+  background: linear-gradient(180deg, #ff957a, #ffc0b0);
+}
+
 .tag-chip--loan {
   border-color: rgba(89, 173, 255, 0.24);
   color: var(--cobalt-soft);
@@ -1809,6 +1992,12 @@ select {
   border-color: rgba(255, 202, 109, 0.24);
   color: #ffe2a8;
   background: rgba(255, 202, 109, 0.1);
+}
+
+.tag-chip--recurring {
+  border-color: rgba(255, 149, 122, 0.24);
+  color: #ffc7ba;
+  background: rgba(255, 149, 122, 0.1);
 }
 
 .entry-card__main {
@@ -2042,6 +2231,8 @@ select {
   .kind-selector,
   .loan-mode-picker,
   .category-card__stats,
+  .dashboard-category-grid,
+  .dashboard-category-card__stats,
   .summary-loan-card__stats,
   .summary-expense-card__stats,
   .field-grid {

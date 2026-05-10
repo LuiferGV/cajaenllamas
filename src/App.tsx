@@ -17,11 +17,13 @@ import {
   formatCurrency,
   formatDate,
   generateInstallmentPlanDraft,
+  getDashboardCategorySummaries,
   getCompletionRatio,
   getCurrentInstallmentNumber,
   getDashboardMetrics,
   getDisplayEntity,
   getDisplayTitle,
+  getKindLabel,
   getKindTheme,
   getInstallmentsAfterCurrent,
   getNextActiveItem,
@@ -38,13 +40,14 @@ import {
 import type { EntryKind, FinanceDraft, FinanceItem, FinanceState } from "./types";
 
 type FormMode = "create" | "edit";
-type AppView = "dashboard" | "history";
+type AppView = "overview" | "dashboard" | "history";
 
 const FILTER_OPTIONS: Array<{ value: EntryKind | "all"; label: string }> = [
   { value: "all", label: "Todos" },
   { value: "loan", label: "Prestamos" },
   { value: "variable_expense", label: "Gastos variables" },
-  { value: "fixed_expense", label: "Gastos fijos" }
+  { value: "fixed_expense", label: "Gastos fijos" },
+  { value: "recurring_expense", label: "Gastos recurrentes" }
 ];
 
 export default function App() {
@@ -52,7 +55,7 @@ export default function App() {
   const { financeState, persistState } = useFinanceData(sessionState === "authenticated", userId);
   const [draft, setDraft] = useState<FinanceDraft>(() => createEmptyDraft());
   const [formMode, setFormMode] = useState<FormMode>("create");
-  const [activeView, setActiveView] = useState<AppView>("dashboard");
+  const [activeView, setActiveView] = useState<AppView>("overview");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [kindFilter, setKindFilter] = useState<EntryKind | "all">("all");
@@ -107,6 +110,8 @@ export default function App() {
   const activeLoanItems = financeState.items.filter((item) => item.kind === "loan" && !item.isCompleted);
   const activeVariableItems = financeState.items.filter((item) => item.kind === "variable_expense" && !item.isCompleted);
   const activeFixedItems = financeState.items.filter((item) => item.kind === "fixed_expense" && !item.isCompleted);
+  const activeRecurringItems = financeState.items.filter((item) => item.kind === "recurring_expense" && !item.isCompleted);
+  const categorySummaries = getDashboardCategorySummaries(financeState);
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
 
@@ -264,7 +269,7 @@ export default function App() {
         return;
       }
 
-      setActiveView("dashboard");
+      setActiveView("overview");
       closeComposer();
 
       if (typeof window !== "undefined" && window.innerWidth <= 1080) {
@@ -316,7 +321,7 @@ export default function App() {
     void applyFinanceMutation(
       (current) => {
         const item = current.items.find((entry) => entry.id === itemId);
-        if (!item || item.kind !== "variable_expense") return current;
+        if (!item || (item.kind !== "variable_expense" && item.kind !== "recurring_expense")) return current;
 
         return upsertItem(current, {
           ...item,
@@ -409,10 +414,17 @@ export default function App() {
           <nav className="topbar__nav" aria-label="Secciones principales">
             <button
               type="button"
+              className={`topbar__nav-button ${activeView === "overview" ? "is-active" : ""}`}
+              onClick={() => setActiveView("overview")}
+            >
+              Panel principal
+            </button>
+            <button
+              type="button"
               className={`topbar__nav-button ${activeView === "dashboard" ? "is-active" : ""}`}
               onClick={() => setActiveView("dashboard")}
             >
-              Panel principal
+              Dashboard
             </button>
             <button
               type="button"
@@ -441,7 +453,7 @@ export default function App() {
         </div>
       </header>
 
-      {activeView === "dashboard" ? (
+      {activeView === "overview" ? (
         <>
           <section className="metrics-grid">
             <MetricCard
@@ -555,13 +567,42 @@ export default function App() {
                 Ideal para ninera, alquiler, internet, colegio o cualquier pago que no tiene fecha de cierre.
               </p>
             </article>
+
+            <article className="surface-card category-card category-card--recurring">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Gastos recurrentes</p>
+                  <h2>Bolsas mensuales</h2>
+                </div>
+                <span className="status-pill status-pill--section status-pill--section-recurring">
+                  {metrics.recurringExpenses.activeCount} activos
+                </span>
+              </div>
+              <div className="category-card__stats">
+                <div>
+                  <span>Pagado este mes</span>
+                  <strong>{formatCurrency(metrics.recurringExpenses.paidAmount)}</strong>
+                </div>
+                <div>
+                  <span>Pendiente del mes</span>
+                  <strong>{formatCurrency(metrics.recurringExpenses.pendingAmount)}</strong>
+                </div>
+                <div>
+                  <span>Base mensual</span>
+                  <strong>{formatCurrency(metrics.recurringExpenses.monthlyBase)}</strong>
+                </div>
+              </div>
+              <p className="category-card__note">
+                Pensado para combustible, gimnasio, bebe, farmacia o cualquier categoria que reaparece en tus ciclos.
+              </p>
+            </article>
           </section>
 
           <section className="summary-stage">
             <article className="surface-card hero-card">
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">Dashboard</p>
+                  <p className="eyebrow">Resumen general</p>
                   <h2>Resumen consolidado</h2>
                 </div>
                 <span className="status-pill status-pill--neutral">{metrics.overview.activeCount} registros activos</span>
@@ -745,6 +786,63 @@ export default function App() {
                 )}
               </section>
 
+              <section className="summary-expenses summary-expenses--recurring">
+                <div className="summary-expenses__header">
+                  <div>
+                    <p className="eyebrow">Gastos recurrentes</p>
+                    <h3>Detalle por categoria</h3>
+                  </div>
+                  <span className="status-pill status-pill--section status-pill--section-recurring">
+                    {activeRecurringItems.length} activos
+                  </span>
+                </div>
+
+                {activeRecurringItems.length === 0 ? (
+                  <div className="empty-state empty-state--compact">
+                    <h3>No hay gastos recurrentes activos</h3>
+                    <p>Cuando cargues combustible, gimnasio, farmacia o super, aqui veras cada categoria por separado.</p>
+                  </div>
+                ) : (
+                  <div className="summary-expenses__list">
+                    {activeRecurringItems.map((item) => {
+                      const displayTitle = getDisplayTitle(item);
+                      const displayEntity = getDisplayEntity(item);
+
+                      return (
+                        <article key={item.id} className="summary-expense-card summary-expense-card--recurring">
+                          <div className="summary-expense-card__identity">
+                            <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                            <div className="summary-expense-card__copy">
+                              <strong>{displayTitle}</strong>
+                              <p>{displayEntity}</p>
+                            </div>
+                          </div>
+
+                          <div className="summary-expense-card__stats">
+                            <div>
+                              <span>Monto base</span>
+                              <strong>{formatCurrency(item.amount)}</strong>
+                            </div>
+                            <div>
+                              <span>Recurrencia</span>
+                              <strong>{getRecurrenceLabel(item.recurrence)}</strong>
+                            </div>
+                            <div>
+                              <span>Vence</span>
+                              <strong>{item.dueDate ? formatDate(item.dueDate) : "Sin fecha"}</strong>
+                            </div>
+                          </div>
+
+                          <p className="summary-expense-card__note">
+                            Categoria flexible para gastos que vuelven seguido y quieres seguir como bloque propio.
+                          </p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
               <section className="summary-focus">
                 <div className="summary-focus__copy">
                   <p className="eyebrow">Proximo foco</p>
@@ -802,7 +900,7 @@ export default function App() {
                 <div className="empty-state">
                   <h3>No hay registros para mostrar</h3>
                   <p>
-                    Puedes cargar un prestamo por cuotas, un gasto fijo sin fin o un gasto variable cuyo monto cambie cada mes.
+                    Puedes cargar un prestamo por cuotas, un gasto fijo, un gasto variable o una categoria recurrente como combustible o farmacia.
                   </p>
                 </div>
               ) : (
@@ -830,6 +928,75 @@ export default function App() {
             </div>
           </section>
         </>
+      ) : activeView === "dashboard" ? (
+        <section className="dashboard-stage">
+          <article className="surface-card dashboard-card">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Dashboard</p>
+                <h2>Resumen por categoria</h2>
+              </div>
+              <span className="status-pill status-pill--neutral">{categorySummaries.length} categoria(s) activas</span>
+            </div>
+
+            {categorySummaries.length === 0 ? (
+              <div className="empty-state">
+                <h3>Aun no hay categorias para resumir</h3>
+                <p>Cuando empieces a cargar prestamos o gastos, aqui tendras el panorama por categoria y por tipo.</p>
+              </div>
+            ) : (
+              <div className="dashboard-category-grid">
+                {categorySummaries.map((summary) => {
+                  const kindTheme = getKindTheme(summary.kind);
+                  const entityPreview = summary.entities.slice(0, 3).join(" · ");
+                  const titlePreview = summary.itemTitles.slice(0, 3).join(" · ");
+
+                  return (
+                    <article key={summary.key} className={`dashboard-category-card dashboard-category-card--${kindTheme}`}>
+                      <div className="dashboard-category-card__header">
+                        <div>
+                          <p className="eyebrow">{getKindLabel(summary.kind)}</p>
+                          <h3>{summary.label}</h3>
+                        </div>
+                        <span className={`status-pill status-pill--section status-pill--section-${kindTheme}`}>
+                          {summary.activeCount} activos
+                        </span>
+                      </div>
+
+                      <div className="dashboard-category-card__stats">
+                        <div>
+                          <span>Base mensual</span>
+                          <strong>{formatCurrency(summary.monthlyBase)}</strong>
+                        </div>
+                        <div>
+                          <span>Pagado este mes</span>
+                          <strong>{formatCurrency(summary.paidAmount)}</strong>
+                        </div>
+                        <div>
+                          <span>Pendiente</span>
+                          <strong>{formatCurrency(summary.pendingAmount)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="dashboard-category-card__meta">
+                        <p>{entityPreview || titlePreview || "Sin entidades cargadas aun"}</p>
+                        <p>{summary.nextDueDate ? `Proximo vencimiento: ${formatDate(summary.nextDueDate)}` : "Sin vencimientos pendientes"}</p>
+                      </div>
+
+                      {summary.kind === "loan" ? (
+                        <p className="dashboard-category-card__note">Agrupa todos los prestamos para ver la carga total de cuotas en un solo lugar.</p>
+                      ) : (
+                        <p className="dashboard-category-card__note">
+                          {titlePreview || "Categoria lista para seguir mes a mes sin mezclarla con el resto."}
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </article>
+        </section>
       ) : (
         <section className="history-stage">
           <HistoryPanel history={financeState.history} />

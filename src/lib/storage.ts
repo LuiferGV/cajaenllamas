@@ -14,6 +14,7 @@ const STORAGE_KEY = "finances.personal.v1";
 function normalizeKind(kind: string | undefined): EntryKind {
   if (kind === "loan") return "loan";
   if (kind === "variable_expense") return "variable_expense";
+  if (kind === "recurring_expense") return "recurring_expense";
   return "fixed_expense";
 }
 

@@ -1,4 +1,5 @@
 import { getCompanyBrand } from "../lib/companyBrand";
+import { getKindTheme } from "../lib/finance";
 import type { EntryKind } from "../types";
 
 interface CompanyLogoProps {
@@ -9,6 +10,7 @@ interface CompanyLogoProps {
 
 export function CompanyLogo({ entityName, kind, size = "md" }: CompanyLogoProps) {
   const brand = getCompanyBrand(entityName);
+  const kindTheme = getKindTheme(kind);
 
   if (brand.src) {
     return (
@@ -21,7 +23,7 @@ export function CompanyLogo({ entityName, kind, size = "md" }: CompanyLogoProps)
   }
 
   return (
-    <div className={`company-logo company-logo--${size} company-logo--fallback company-logo--fallback-${kind}`} title="Logo generico">
+    <div className={`company-logo company-logo--${size} company-logo--fallback company-logo--fallback-${kindTheme}`} title="Logo generico">
       <div className="company-logo__tile">
         <span className="company-logo__initials">{brand.initials}</span>
       </div>

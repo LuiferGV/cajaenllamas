@@ -131,5 +131,6 @@ export function getCompanyBrand(name: string): CompanyBrand {
 export function getCompanyBrandTheme(kind: EntryKind) {
   if (kind === "loan") return "loan" as const;
   if (kind === "fixed_expense") return "fixed" as const;
+  if (kind === "recurring_expense") return "recurring" as const;
   return "variable" as const;
 }
