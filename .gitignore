@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.netlify/
+
+*.log
+vite-dev.log
+vite-dev.err.log
+
+tsconfig.tsbuildinfo
+
+.DS_Store
+Thumbs.db
