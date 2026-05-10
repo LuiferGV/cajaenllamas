@@ -1,5 +1,13 @@
-import { buildDisplayName, EMPTY_STATE, sortItems, todayKey } from "./finance";
-import type { EntryKind, FinanceItem, FinanceState, PaymentHistoryEntry, Recurrence } from "../types";
+import { buildDisplayName, EMPTY_STATE, parseLoanPlanMode, sortItems, todayKey, toLoanInstallmentPlanEntries } from "./finance";
+import type {
+  EntryKind,
+  FinanceItem,
+  FinanceState,
+  LoanInstallmentDraftEntry,
+  LoanInstallmentPlanEntry,
+  PaymentHistoryEntry,
+  Recurrence
+} from "../types";
 
 const STORAGE_KEY = "finances.personal.v1";
 
@@ -22,11 +30,24 @@ function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurren
   const installmentsTotal =
     kind === "loan" && typeof rawItem.installmentsTotal === "number" ? rawItem.installmentsTotal : null;
   const installmentsPaid = kind === "loan" && typeof rawItem.installmentsPaid === "number" ? rawItem.installmentsPaid : 0;
+  const loanPlanMode = kind === "loan" ? parseLoanPlanMode(rawItem.loanPlanMode) : "fixed";
+  const installmentPlan =
+    kind === "loan" && Array.isArray(rawItem.installmentPlan)
+      ? toLoanInstallmentPlanEntries(
+          rawItem.installmentPlan.map((entry) => ({
+            installmentNumber: entry.installmentNumber,
+            dueDate: entry.dueDate,
+            amount: String(entry.amount ?? "")
+          })) as LoanInstallmentDraftEntry[]
+        )
+      : null;
+  const currentScheduledInstallment =
+    loanPlanMode === "schedule" && installmentPlan?.length ? installmentPlan[installmentsPaid] ?? null : null;
   const isCompleted =
     typeof rawItem.isCompleted === "boolean"
       ? rawItem.isCompleted
       : kind === "loan" && installmentsTotal !== null
-        ? installmentsPaid >= installmentsTotal
+        ? installmentsPaid >= installmentsTotal || (loanPlanMode === "schedule" && !currentScheduledInstallment)
         : false;
 
   const entityName =
@@ -39,15 +60,27 @@ function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurren
     entityName,
     conceptName,
     kind,
-    amount: typeof rawItem.amount === "number" ? rawItem.amount : 0,
+    amount:
+      kind === "loan" && loanPlanMode === "schedule"
+        ? currentScheduledInstallment?.amount ?? (typeof rawItem.amount === "number" ? rawItem.amount : 0)
+        : typeof rawItem.amount === "number"
+          ? rawItem.amount
+          : 0,
     recurrence: kind === "loan" ? "monthly" : normalizeRecurrence(rawItem.recurrence),
-    dueDate: isCompleted ? null : rawItem.dueDate ?? todayKey(),
+    dueDate:
+      isCompleted
+        ? null
+        : kind === "loan" && loanPlanMode === "schedule"
+          ? currentScheduledInstallment?.dueDate ?? rawItem.dueDate ?? todayKey()
+          : rawItem.dueDate ?? todayKey(),
     notes: rawItem.notes ?? "",
     createdAt: rawItem.createdAt ?? todayKey(),
     updatedAt: rawItem.updatedAt ?? rawItem.createdAt ?? todayKey(),
     lastPaidAt: rawItem.lastPaidAt ?? null,
     installmentsTotal,
     installmentsPaid,
+    loanPlanMode,
+    installmentPlan,
     isCompleted
   };
 }

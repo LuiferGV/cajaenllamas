@@ -3,6 +3,9 @@ import type {
   FinanceDraft,
   FinanceItem,
   FinanceState,
+  LoanInstallmentDraftEntry,
+  LoanInstallmentPlanEntry,
+  LoanPlanMode,
   PaymentHistoryEntry,
   Recurrence
 } from "../types";
@@ -74,6 +77,8 @@ export function createEmptyDraft(): FinanceDraft {
     installmentsTotal: "",
     installmentsPaid: "0",
     currentInstallmentNumber: "1",
+    loanPlanMode: "fixed",
+    installmentPlan: [],
     historicalPaymentsCount: "0",
     registerCurrentCycleAsPaid: "no",
     currentCyclePaidAt: todayKey()
@@ -144,6 +149,64 @@ export function parseCount(value: string) {
   return normalized ? Number(normalized) : 0;
 }
 
+export function parseLoanPlanMode(value: string | undefined): LoanPlanMode {
+  return value === "schedule" ? "schedule" : "fixed";
+}
+
+export function sanitizeInstallmentPlanEntries(
+  entries: Array<LoanInstallmentDraftEntry | LoanInstallmentPlanEntry> | null | undefined
+) {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .map((entry) => ({
+      installmentNumber:
+        typeof entry.installmentNumber === "number" ? entry.installmentNumber : parseCount(String(entry.installmentNumber ?? "")),
+      dueDate: typeof entry.dueDate === "string" ? entry.dueDate : "",
+      amount:
+        typeof entry.amount === "number" ? String(entry.amount) : typeof entry.amount === "string" ? entry.amount : ""
+    }))
+    .filter((entry) => entry.installmentNumber > 0)
+    .sort((left, right) => left.installmentNumber - right.installmentNumber);
+}
+
+export function toLoanInstallmentPlanEntries(entries: LoanInstallmentDraftEntry[]) {
+  return sanitizeInstallmentPlanEntries(entries)
+    .map((entry) => ({
+      installmentNumber: entry.installmentNumber,
+      dueDate: entry.dueDate,
+      amount: parseAmount(entry.amount)
+    }))
+    .filter((entry) => entry.amount > 0 && Boolean(entry.dueDate))
+    .sort((left, right) => left.installmentNumber - right.installmentNumber);
+}
+
+export function generateInstallmentPlanDraft(
+  totalInstallments: number,
+  currentInstallmentNumber: number,
+  currentDueDate: string,
+  defaultAmount: string,
+  existingEntries: LoanInstallmentDraftEntry[] = []
+) {
+  if (totalInstallments <= 0 || currentInstallmentNumber <= 0 || !currentDueDate) return [];
+
+  const existingByInstallment = new Map(
+    sanitizeInstallmentPlanEntries(existingEntries).map((entry) => [entry.installmentNumber, entry] as const)
+  );
+
+  return Array.from({ length: totalInstallments }, (_, index) => {
+    const installmentNumber = index + 1;
+    const generatedDueDate = shiftCycleDate(currentDueDate, "monthly", installmentNumber - currentInstallmentNumber);
+    const existingEntry = existingByInstallment.get(installmentNumber);
+
+    return {
+      installmentNumber,
+      dueDate: existingEntry?.dueDate || generatedDueDate,
+      amount: existingEntry?.amount || defaultAmount
+    } satisfies LoanInstallmentDraftEntry;
+  });
+}
+
 export function isLoan(item: Pick<FinanceItem, "kind">) {
   return item.kind === "loan";
 }
@@ -160,15 +223,35 @@ export function buildItemFromDraft(
 ): FinanceItem {
   const now = todayKey();
   const installmentsTotal = draft.kind === "loan" ? parseCount(draft.installmentsTotal) : null;
+  const loanPlanMode = draft.kind === "loan" ? draft.loanPlanMode : "fixed";
   const installmentsPaid =
     draft.kind === "loan"
       ? options?.mode === "create"
         ? Math.max(parseCount(draft.currentInstallmentNumber) - 1, 0)
         : parseCount(draft.installmentsPaid)
       : 0;
-  const isCompleted = draft.kind === "loan" ? installmentsTotal !== null && installmentsPaid >= installmentsTotal : false;
   const entityName = draft.entityName.trim();
   const conceptName = draft.conceptName.trim();
+  const installmentPlan =
+    draft.kind === "loan" && loanPlanMode === "schedule" ? toLoanInstallmentPlanEntries(draft.installmentPlan) : null;
+  const currentScheduledInstallment =
+    installmentPlan && installmentPlan.length > 0 ? installmentPlan[installmentsPaid] ?? null : null;
+  const amount =
+    draft.kind === "loan" && loanPlanMode === "schedule"
+      ? currentScheduledInstallment?.amount ?? parseAmount(draft.amount)
+      : parseAmount(draft.amount);
+  const isCompleted =
+    draft.kind === "loan"
+      ? installmentsTotal !== null && (installmentsPaid >= installmentsTotal || (loanPlanMode === "schedule" && !currentScheduledInstallment))
+      : false;
+  const dueDate =
+    draft.kind === "loan" && loanPlanMode === "schedule"
+      ? isCompleted
+        ? null
+        : currentScheduledInstallment?.dueDate ?? draft.dueDate
+      : isCompleted
+        ? null
+        : draft.dueDate;
 
   return {
     id: itemId ?? previous?.id ?? createId("item"),
@@ -176,15 +259,17 @@ export function buildItemFromDraft(
     entityName,
     conceptName,
     kind: draft.kind,
-    amount: parseAmount(draft.amount),
+    amount,
     recurrence: draft.kind === "loan" ? "monthly" : draft.recurrence,
-    dueDate: isCompleted ? null : draft.dueDate,
+    dueDate,
     notes: draft.notes.trim(),
     createdAt: previous?.createdAt ?? now,
     updatedAt: now,
     lastPaidAt: previous?.lastPaidAt ?? null,
     installmentsTotal,
     installmentsPaid,
+    loanPlanMode,
+    installmentPlan,
     isCompleted
   };
 }
@@ -203,6 +288,13 @@ export function draftFromItem(item: FinanceItem): FinanceDraft {
     installmentsTotal: item.installmentsTotal ? String(item.installmentsTotal) : "",
     installmentsPaid: String(item.installmentsPaid),
     currentInstallmentNumber: String(nextInstallmentNumber),
+    loanPlanMode: item.loanPlanMode ?? "fixed",
+    installmentPlan:
+      item.installmentPlan?.map((entry) => ({
+        installmentNumber: entry.installmentNumber,
+        dueDate: entry.dueDate,
+        amount: String(entry.amount)
+      })) ?? [],
     historicalPaymentsCount: "0",
     registerCurrentCycleAsPaid: "no",
     currentCyclePaidAt: todayKey()
@@ -223,11 +315,34 @@ export function validateDraft(draft: FinanceDraft) {
     const totalInstallments = parseCount(draft.installmentsTotal);
     const paidInstallments = parseCount(draft.installmentsPaid);
     const currentInstallmentNumber = parseCount(draft.currentInstallmentNumber);
+    const installmentPlan = sanitizeInstallmentPlanEntries(draft.installmentPlan);
 
     if (totalInstallments <= 0) return "Indica cuantas cuotas tiene el prestamo.";
     if (currentInstallmentNumber <= 0) return "Indica que numero de cuota vas a cargar.";
     if (currentInstallmentNumber > totalInstallments) return "La cuota actual no puede superar el total de cuotas.";
     if (paidInstallments > totalInstallments) return "Las cuotas pagadas no pueden superar el total.";
+    if (draft.loanPlanMode === "schedule") {
+      if (!draft.dueDate) return "Selecciona la fecha de la cuota actual para generar el cuotero.";
+      if (installmentPlan.length !== totalInstallments) return "Genera el cuotero completo antes de guardar.";
+
+      for (let index = 0; index < installmentPlan.length; index += 1) {
+        const entry = installmentPlan[index];
+        if (entry.installmentNumber !== index + 1) {
+          return "El cuotero debe tener todas las cuotas en orden, del 1 hasta el total.";
+        }
+
+        if (!entry.dueDate) {
+          return `Completa la fecha de la cuota ${entry.installmentNumber}.`;
+        }
+
+        if (parseAmount(entry.amount) <= 0) {
+          return `Completa el monto de la cuota ${entry.installmentNumber}.`;
+        }
+      }
+
+      return null;
+    }
+
     if (paidInstallments < totalInstallments && !draft.dueDate) {
       return "Selecciona la fecha de la proxima cuota.";
     }
@@ -309,6 +424,15 @@ export function getCurrentInstallmentNumber(item: FinanceItem) {
   return Math.min(item.installmentsPaid + 1, item.installmentsTotal);
 }
 
+export function hasScheduledLoanPlan(item: FinanceItem) {
+  return isLoan(item) && item.loanPlanMode === "schedule" && Array.isArray(item.installmentPlan) && item.installmentPlan.length > 0;
+}
+
+export function getCurrentScheduledInstallment(item: FinanceItem) {
+  if (!hasScheduledLoanPlan(item)) return null;
+  return item.installmentPlan?.[item.installmentsPaid] ?? null;
+}
+
 export function getInstallmentsAfterCurrent(item: FinanceItem) {
   const currentInstallmentNumber = getCurrentInstallmentNumber(item);
   if (currentInstallmentNumber === null || item.installmentsTotal === null) return null;
@@ -321,11 +445,29 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
   const item = state.items.find((entry) => entry.id === itemId);
   if (!item || item.isCompleted) return state;
 
-  const currentDueDate = item.dueDate ?? paidAt;
+  const currentScheduledInstallment =
+    isLoan(item) && item.loanPlanMode === "schedule" && item.installmentPlan?.length
+      ? item.installmentPlan[item.installmentsPaid] ?? null
+      : null;
+  const currentDueDate = currentScheduledInstallment?.dueDate ?? item.dueDate ?? paidAt;
+  const currentAmount = currentScheduledInstallment?.amount ?? item.amount;
   const nextInstallmentsPaid = isLoan(item) ? item.installmentsPaid + 1 : item.installmentsPaid;
+  const nextScheduledInstallment =
+    isLoan(item) && item.loanPlanMode === "schedule" && item.installmentPlan?.length
+      ? item.installmentPlan[nextInstallmentsPaid] ?? null
+      : null;
   const completesLoan =
-    isLoan(item) && item.installmentsTotal !== null ? nextInstallmentsPaid >= item.installmentsTotal : false;
-  const nextDueDate = completesLoan ? null : getNextDueDate(currentDueDate, item.recurrence, paidAt);
+    isLoan(item) && item.installmentsTotal !== null
+      ? nextInstallmentsPaid >= item.installmentsTotal || (item.loanPlanMode === "schedule" && !nextScheduledInstallment)
+      : false;
+  const nextDueDate =
+    item.loanPlanMode === "schedule"
+      ? completesLoan
+        ? null
+        : nextScheduledInstallment?.dueDate ?? null
+      : completesLoan
+        ? null
+        : getNextDueDate(currentDueDate, item.recurrence, paidAt);
   const installmentNumber = isLoan(item) ? nextInstallmentsPaid : null;
 
   const payment: PaymentHistoryEntry = {
@@ -335,7 +477,7 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
     entityName: item.entityName,
     conceptName: item.conceptName,
     kind: item.kind,
-    amount: item.amount,
+    amount: currentAmount,
     recurrence: item.recurrence,
     paidAt,
     coveredDueDate: currentDueDate,
@@ -350,6 +492,7 @@ export function registerPayment(state: FinanceState, itemId: string, paidAt = to
         entry.id === itemId
           ? {
               ...entry,
+              amount: item.loanPlanMode === "schedule" ? nextScheduledInstallment?.amount ?? entry.amount : entry.amount,
               dueDate: nextDueDate,
               updatedAt: paidAt,
               lastPaidAt: paidAt,
@@ -368,7 +511,8 @@ function createHistoricalPaymentEntry(
   coveredDueDate: string,
   nextDueDate: string | null,
   paidAt: string,
-  installmentNumber: number | null
+  installmentNumber: number | null,
+  amount: number
 ): PaymentHistoryEntry {
   return {
     id: createId("payment"),
@@ -377,7 +521,7 @@ function createHistoricalPaymentEntry(
     entityName: item.entityName,
     conceptName: item.conceptName,
     kind: item.kind,
-    amount: item.amount,
+    amount,
     recurrence: item.recurrence,
     paidAt,
     coveredDueDate,
@@ -394,6 +538,23 @@ export function buildInitialHistoryEntries(item: FinanceItem, draft: FinanceDraf
 
   if (historicalCount <= 0 || !draft.dueDate) return [];
 
+  if (item.kind === "loan" && item.loanPlanMode === "schedule" && item.installmentPlan?.length) {
+    return item.installmentPlan
+      .filter((entry) => entry.installmentNumber <= historicalCount)
+      .map((entry, index, entries) => {
+        const nextPlanEntry = entries[index + 1] ?? item.installmentPlan?.[entry.installmentNumber] ?? null;
+
+        return createHistoricalPaymentEntry(
+          item,
+          entry.dueDate,
+          nextPlanEntry?.dueDate ?? null,
+          entry.dueDate,
+          entry.installmentNumber,
+          entry.amount
+        );
+      });
+  }
+
   return Array.from({ length: historicalCount }, (_, index) => {
     const cyclesBack = index + 1;
     const coveredDueDate = shiftCycleDate(draft.dueDate, item.recurrence, -cyclesBack);
@@ -405,7 +566,8 @@ export function buildInitialHistoryEntries(item: FinanceItem, draft: FinanceDraf
       coveredDueDate,
       nextDueDate,
       coveredDueDate,
-      installmentNumber
+      installmentNumber,
+      item.amount
     );
   });
 }

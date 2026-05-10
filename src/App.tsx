@@ -16,6 +16,7 @@ import {
   filterItems,
   formatCurrency,
   formatDate,
+  generateInstallmentPlanDraft,
   getCompletionRatio,
   getCurrentInstallmentNumber,
   getDashboardMetrics,
@@ -120,6 +121,8 @@ export default function App() {
           installmentsTotal: nextKind === "loan" ? current.installmentsTotal : "",
           installmentsPaid: nextKind === "loan" ? current.installmentsPaid : "0",
           currentInstallmentNumber: "1",
+          loanPlanMode: "fixed",
+          installmentPlan: [],
           historicalPaymentsCount: nextKind === "loan" ? "0" : current.historicalPaymentsCount,
           registerCurrentCycleAsPaid: "no",
           currentCyclePaidAt: todayKey()
@@ -132,6 +135,53 @@ export default function App() {
       };
     });
 
+    setFormError(null);
+  };
+
+  const handleLoanPlanModeChange = (nextMode: FinanceDraft["loanPlanMode"]) => {
+    setDraft((current) => ({
+      ...current,
+      loanPlanMode: nextMode,
+      installmentPlan: nextMode === "schedule" ? current.installmentPlan : []
+    }));
+    setFormError(null);
+  };
+
+  const handleGenerateInstallmentPlan = () => {
+    setDraft((current) => {
+      const totalInstallments = Number(current.installmentsTotal.replace(/[^\d]/g, ""));
+      const currentInstallmentNumber = Number(current.currentInstallmentNumber.replace(/[^\d]/g, ""));
+
+      return {
+        ...current,
+        installmentPlan: generateInstallmentPlanDraft(
+          totalInstallments,
+          currentInstallmentNumber,
+          current.dueDate,
+          current.amount,
+          current.installmentPlan
+        )
+      };
+    });
+    setFormError(null);
+  };
+
+  const handleInstallmentPlanChange = (
+    installmentNumber: number,
+    field: "dueDate" | "amount",
+    value: string
+  ) => {
+    setDraft((current) => ({
+      ...current,
+      installmentPlan: current.installmentPlan.map((entry) =>
+        entry.installmentNumber === installmentNumber
+          ? {
+              ...entry,
+              [field]: value
+            }
+          : entry
+      )
+    }));
     setFormError(null);
   };
 
@@ -796,6 +846,9 @@ export default function App() {
               onChange={handleDraftChange}
               onSubmit={handleSubmit}
               onReset={handleFormReset}
+              onLoanPlanModeChange={handleLoanPlanModeChange}
+              onGenerateInstallmentPlan={handleGenerateInstallmentPlan}
+              onInstallmentPlanChange={handleInstallmentPlanChange}
               headerAction={
                 <button type="button" className="outline-button modal-close-button" onClick={closeComposer}>
                   Cerrar

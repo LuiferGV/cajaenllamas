@@ -25,6 +25,19 @@ const KIND_COPY: Record<
   }
 };
 
+const LOAN_PLAN_OPTIONS = [
+  {
+    value: "fixed",
+    label: "Cuota fija",
+    hint: "Un mismo monto todos los meses"
+  },
+  {
+    value: "schedule",
+    label: "Agregar cuotero",
+    hint: "Cargas cada mes con su propio monto"
+  }
+] as const;
+
 interface FinanceFormProps {
   values: FinanceDraft;
   mode: "create" | "edit";
@@ -32,11 +45,26 @@ interface FinanceFormProps {
   onChange: (field: keyof FinanceDraft, value: string) => void;
   onSubmit: () => void;
   onReset: () => void;
+  onLoanPlanModeChange: (mode: FinanceDraft["loanPlanMode"]) => void;
+  onGenerateInstallmentPlan: () => void;
+  onInstallmentPlanChange: (installmentNumber: number, field: "dueDate" | "amount", value: string) => void;
   headerAction?: ReactNode;
   titleId?: string;
 }
 
-export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, headerAction, titleId }: FinanceFormProps) {
+export function FinanceForm({
+  values,
+  mode,
+  error,
+  onChange,
+  onSubmit,
+  onReset,
+  onLoanPlanModeChange,
+  onGenerateInstallmentPlan,
+  onInstallmentPlanChange,
+  headerAction,
+  titleId
+}: FinanceFormProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSubmit();
@@ -50,6 +78,7 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, 
 
   const isLoan = values.kind === "loan";
   const isVariableExpense = values.kind === "variable_expense";
+  const isScheduledLoan = isLoan && values.loanPlanMode === "schedule";
   const kindTheme = getKindTheme(values.kind);
   const companyBrand = values.entityName.trim() ? getCompanyBrand(values.entityName) : null;
   const totalInstallments = parseCount(values.installmentsTotal);
@@ -85,6 +114,7 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, 
     : isVariableExpense
       ? "Ej.: Agua, Luz"
       : "Ej.: Internet, Domestica, Ninera";
+  const hasInstallmentPlan = values.installmentPlan.length > 0;
 
   return (
     <form className={`composer-card composer-card--${kindTheme}`} onSubmit={handleSubmit}>
@@ -101,11 +131,34 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, 
 
       <div className={`form-helper form-helper--${kindTheme}`}>
         {isLoan
-          ? "Prestamo por cuotas: primero defines la entidad, luego para que fue el prestamo, y el sistema sigue las cuotas hasta cerrarlo."
+          ? isScheduledLoan
+            ? "Prestamo con cuotero: cargas todas las cuotas con sus montos reales y el sistema avanza solo a la siguiente cada vez que pagas."
+            : "Prestamo por cuotas: primero defines la entidad, luego para que fue el prestamo, y el sistema sigue las cuotas hasta cerrarlo."
           : isVariableExpense
             ? "Gasto variable: ideal para servicios como agua o luz, donde el monto cambia y lo ajustas en cada ciclo."
             : "Gasto fijo: pensado para internet, domestica, ninera u otros compromisos que se repiten mes a mes."}
       </div>
+
+      {isLoan ? (
+        <div className="loan-mode-picker" role="group" aria-label="Modalidad del prestamo">
+          {LOAN_PLAN_OPTIONS.map((option) => {
+            const isActive = values.loanPlanMode === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`loan-mode-option ${isActive ? "is-active" : ""}`}
+                aria-pressed={isActive}
+                onClick={() => onLoanPlanModeChange(option.value)}
+              >
+                <span className="loan-mode-option__label">{option.label}</span>
+                <span className="loan-mode-option__hint">{option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div className="kind-selector" role="radiogroup" aria-label="Tipo de registro">
         {KIND_OPTIONS.map((option) => {
@@ -160,7 +213,15 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, 
         </label>
 
         <label className={`field field--${kindTheme}`}>
-          <span>{isLoan ? "Monto por cuota" : isVariableExpense ? "Monto actual del ciclo" : "Monto recurrente"}</span>
+          <span>
+            {isLoan
+              ? isScheduledLoan
+                ? "Monto base para precargar"
+                : "Monto por cuota"
+              : isVariableExpense
+                ? "Monto actual del ciclo"
+                : "Monto recurrente"}
+          </span>
           <input type="text" inputMode="numeric" value={values.amount} onChange={handleFieldChange("amount")} placeholder="650000" />
         </label>
 
@@ -224,6 +285,75 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, 
                 </div>
               </div>
             ) : null}
+
+            {isScheduledLoan ? (
+              <div className="field field--full">
+                <section className="installment-plan">
+                  <div className="installment-plan__header">
+                    <div>
+                      <p className="eyebrow">Cuotero</p>
+                      <h3>{hasInstallmentPlan ? "Cuotas precargadas" : "Genera tu cuotero"}</h3>
+                    </div>
+                    <button type="button" className="outline-button" onClick={onGenerateInstallmentPlan}>
+                      {hasInstallmentPlan ? "Actualizar cuotero" : "Generar cuotero"}
+                    </button>
+                  </div>
+
+                  <p className="installment-plan__copy">
+                    {hasInstallmentPlan
+                      ? "Puedes ajustar fecha y monto de cada cuota. Cuando registres un pago, la app tomara la siguiente fila automaticamente."
+                      : "Primero define total de cuotas, numero de cuota actual y fecha actual. Luego genera el cuotero para completar todos los meses."}
+                  </p>
+
+                  {hasInstallmentPlan ? (
+                    <div className="installment-plan__list">
+                      {values.installmentPlan.map((entry) => {
+                        const rowState =
+                          entry.installmentNumber < currentInstallmentNumber
+                            ? "is-previous"
+                            : entry.installmentNumber === currentInstallmentNumber
+                              ? "is-current"
+                              : "";
+
+                        return (
+                          <div key={entry.installmentNumber} className={`installment-plan__row ${rowState}`}>
+                            <div className="installment-plan__index">
+                              <strong>Cuota {entry.installmentNumber}</strong>
+                              <span>
+                                {entry.installmentNumber < currentInstallmentNumber
+                                  ? "Historial"
+                                  : entry.installmentNumber === currentInstallmentNumber
+                                    ? "Actual"
+                                    : "Pendiente"}
+                              </span>
+                            </div>
+
+                            <label className="field field--loan installment-plan__field">
+                              <span>Vence</span>
+                              <input
+                                type="date"
+                                value={entry.dueDate}
+                                onChange={(event) => onInstallmentPlanChange(entry.installmentNumber, "dueDate", event.target.value)}
+                              />
+                            </label>
+
+                            <label className="field field--loan installment-plan__field">
+                              <span>Monto</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={entry.amount}
+                                onChange={(event) => onInstallmentPlanChange(entry.installmentNumber, "amount", event.target.value)}
+                              />
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            ) : null}
           </>
         ) : (
           <div className={`field field--full field--${kindTheme}`}>
@@ -277,7 +407,9 @@ export function FinanceForm({ values, mode, error, onChange, onSubmit, onReset, 
 
           <p className="history-seed__copy">
             {isLoan
-              ? "Si cargas, por ejemplo, la cuota 25 de 60, la app crea automaticamente el historial de las 24 cuotas anteriores y te deja seguir desde ahi."
+              ? isScheduledLoan
+                ? "Si vas por la cuota 25 de 60, el cuotero puede cubrir todas las cuotas y la app deja las 24 anteriores en el historial para seguir desde la actual."
+                : "Si cargas, por ejemplo, la cuota 25 de 60, la app crea automaticamente el historial de las 24 cuotas anteriores y te deja seguir desde ahi."
               : "Si este gasto ya tenia ciclos pagados antes de empezar a usar la app, puedes importarlos como historial inicial con un solo guardado."}
           </p>
 

@@ -5,6 +5,7 @@ import {
   formatCurrency,
   formatDate,
   getCurrentInstallmentNumber,
+  hasScheduledLoanPlan,
   getDisplayEntity,
   getDisplayTitle,
   getInstallmentsAfterCurrent,
@@ -49,6 +50,7 @@ export function ExpenseRow({
   const currentInstallmentNumber = getCurrentInstallmentNumber(item);
   const showPayButton = !item.isCompleted;
   const kindTheme = getKindTheme(item.kind);
+  const hasLoanSchedule = hasScheduledLoanPlan(item);
   const [amountDraft, setAmountDraft] = useState(String(item.amount));
   const canSaveAmount = parseAmount(amountDraft) > 0 && parseAmount(amountDraft) !== item.amount;
 
@@ -67,6 +69,7 @@ export function ExpenseRow({
                 <span className={`status-pill status-pill--${status.tone}`}>{status.label}</span>
                 <span className={`tag-chip tag-chip--${kindTheme}`}>{getKindLabel(item.kind)}</span>
                 <span className="tag-chip">{getRecurrenceLabel(item.recurrence)}</span>
+                {hasLoanSchedule ? <span className="tag-chip">Cuotero</span> : null}
                 {isLoan(item) && item.installmentsTotal !== null && currentInstallmentNumber !== null ? (
                   <span className="tag-chip">
                     {item.isCompleted
@@ -115,7 +118,9 @@ export function ExpenseRow({
             {isLoan(item)
               ? item.isCompleted
                 ? "Prestamo completado"
-                : `Pendientes: ${remainingInstallments ?? 0} con esta incluida. Despues quedan ${installmentsAfterCurrent ?? 0}.`
+                : hasLoanSchedule
+                  ? `Cuotero activo. Pendientes: ${remainingInstallments ?? 0} con esta incluida. Despues quedan ${installmentsAfterCurrent ?? 0}.`
+                  : `Pendientes: ${remainingInstallments ?? 0} con esta incluida. Despues quedan ${installmentsAfterCurrent ?? 0}.`
               : item.kind === "variable_expense"
                 ? "Monto editable al cambiar la factura"
                 : "Gasto recurrente sin fecha de cierre"}

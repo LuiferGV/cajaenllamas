@@ -1015,6 +1015,124 @@ select {
   font-size: 0.92rem;
 }
 
+.loan-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.loan-mode-option {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(89, 173, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  color: var(--text-strong);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.loan-mode-option:hover {
+  transform: translateY(-1px);
+}
+
+.loan-mode-option.is-active {
+  border-color: rgba(89, 173, 255, 0.34);
+  background: linear-gradient(180deg, rgba(89, 173, 255, 0.18), rgba(89, 173, 255, 0.06));
+  box-shadow: 0 16px 28px rgba(89, 173, 255, 0.14);
+}
+
+.loan-mode-option__label {
+  font-weight: 800;
+}
+
+.loan-mode-option__hint {
+  color: var(--text-main);
+  font-size: 0.88rem;
+}
+
+.installment-plan {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(89, 173, 255, 0.18);
+  background: linear-gradient(180deg, rgba(89, 173, 255, 0.1), rgba(255, 255, 255, 0.025));
+}
+
+.installment-plan__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.installment-plan__header h3 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.installment-plan__copy {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.installment-plan__list {
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.installment-plan__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(89, 173, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.installment-plan__row.is-previous {
+  border-color: rgba(146, 187, 214, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.installment-plan__row.is-current {
+  border-color: rgba(89, 173, 255, 0.3);
+  background: linear-gradient(180deg, rgba(89, 173, 255, 0.14), rgba(255, 255, 255, 0.03));
+}
+
+.installment-plan__index {
+  display: grid;
+  gap: 4px;
+}
+
+.installment-plan__index strong {
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.installment-plan__index span {
+  color: var(--text-main);
+  font-size: 0.84rem;
+}
+
+.installment-plan__field {
+  min-width: 0;
+}
+
 .field-grid--history {
   margin-top: 16px;
 }
@@ -1922,6 +2040,7 @@ select {
   }
 
   .kind-selector,
+  .loan-mode-picker,
   .category-card__stats,
   .summary-loan-card__stats,
   .summary-expense-card__stats,
@@ -1960,6 +2079,10 @@ select {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .installment-plan__row {
+    grid-template-columns: 1fr;
   }
 
   .entry-card__amounts {

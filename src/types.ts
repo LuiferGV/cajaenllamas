@@ -2,6 +2,20 @@ export type EntryKind = "loan" | "fixed_expense" | "variable_expense";
 
 export type Recurrence = "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
 
+export type LoanPlanMode = "fixed" | "schedule";
+
+export interface LoanInstallmentPlanEntry {
+  installmentNumber: number;
+  dueDate: string;
+  amount: number;
+}
+
+export interface LoanInstallmentDraftEntry {
+  installmentNumber: number;
+  dueDate: string;
+  amount: string;
+}
+
 export interface FinanceItem {
   id: string;
   name: string;
@@ -17,6 +31,8 @@ export interface FinanceItem {
   lastPaidAt: string | null;
   installmentsTotal: number | null;
   installmentsPaid: number;
+  loanPlanMode: LoanPlanMode;
+  installmentPlan: LoanInstallmentPlanEntry[] | null;
   isCompleted: boolean;
 }
 
@@ -52,6 +68,8 @@ export interface FinanceDraft {
   installmentsTotal: string;
   installmentsPaid: string;
   currentInstallmentNumber: string;
+  loanPlanMode: LoanPlanMode;
+  installmentPlan: LoanInstallmentDraftEntry[];
   historicalPaymentsCount: string;
   registerCurrentCycleAsPaid: "yes" | "no";
   currentCyclePaidAt: string;
