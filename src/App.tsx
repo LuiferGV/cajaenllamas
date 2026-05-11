@@ -67,7 +67,7 @@ const FILTER_OPTIONS: Array<{ value: EntryKind | "all"; label: string }> = [
 export default function App() {
   const { sessionState, userEmail, userId, authError, isSubmitting, login, register, logout } = useFirebaseSession();
   const { financeState, persistState } = useFinanceData(sessionState === "authenticated", userId);
-  const { sharedLoans, sharedLoansState, sharedLoansError, saveSharedLoan } = useSharedLoansData(
+  const { sharedLoans, sharedLoansState, sharedLoansError, saveSharedLoan, deleteSharedLoan } = useSharedLoansData(
     sessionState === "authenticated",
     userEmail
   );
@@ -82,6 +82,7 @@ export default function App() {
   const [sharedLoanFormError, setSharedLoanFormError] = useState<string | null>(null);
   const [isSubmittingSharedLoan, setIsSubmittingSharedLoan] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingSharedDeleteId, setPendingSharedDeleteId] = useState<string | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isSharedComposerOpen, setIsSharedComposerOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
@@ -254,6 +255,7 @@ export default function App() {
     setSharedLoanDraft(createEmptySharedLoanDraft());
     setSharedLoanFormError(null);
     setIsSubmittingSharedLoan(false);
+    setPendingSharedDeleteId(null);
   };
 
   const closeComposer = () => {
@@ -429,6 +431,22 @@ export default function App() {
 
     const nextLoan = registerSharedLoanExtraPayment(loan, parsedAmount, userId, userEmail);
     void saveSharedLoan(nextLoan);
+  };
+
+  const handleSharedLoanDelete = (loanId: string) => {
+    const loan = sharedLoans.find((entry) => entry.id === loanId);
+    if (!loan || !userEmail) return;
+    if (!isSharedLoanEditable(loan, userEmail)) return;
+
+    void (async () => {
+      const deleted = await deleteSharedLoan(loan);
+      if (!deleted) {
+        setSharedLoanFormError("No se pudo eliminar el prestamo compartido. Prueba otra vez.");
+        return;
+      }
+
+      setPendingSharedDeleteId(null);
+    })();
   };
 
   const handleEdit = (item: FinanceItem) => {
@@ -1229,8 +1247,12 @@ export default function App() {
                       key={loan.id}
                       loan={loan}
                       currentUserEmail={userEmail}
+                      confirmingDelete={pendingSharedDeleteId === loan.id}
                       onPay={() => handleSharedLoanPay(loan.id)}
                       onAddExtraPayment={(nextAmount) => handleSharedLoanExtraPayment(loan.id, nextAmount)}
+                      onAskDelete={() => setPendingSharedDeleteId(loan.id)}
+                      onConfirmDelete={() => handleSharedLoanDelete(loan.id)}
+                      onCancelDelete={() => setPendingSharedDeleteId(null)}
                     />
                   ))}
                 </div>
@@ -1264,8 +1286,12 @@ export default function App() {
                       key={loan.id}
                       loan={loan}
                       currentUserEmail={userEmail}
+                      confirmingDelete={pendingSharedDeleteId === loan.id}
                       onPay={() => handleSharedLoanPay(loan.id)}
                       onAddExtraPayment={(nextAmount) => handleSharedLoanExtraPayment(loan.id, nextAmount)}
+                      onAskDelete={() => setPendingSharedDeleteId(loan.id)}
+                      onConfirmDelete={() => handleSharedLoanDelete(loan.id)}
+                      onCancelDelete={() => setPendingSharedDeleteId(null)}
                     />
                   ))}
                 </div>

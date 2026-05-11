@@ -13,11 +13,24 @@ import type { SharedLoan } from "../types";
 interface SharedLoanRowProps {
   loan: SharedLoan;
   currentUserEmail: string | null;
+  confirmingDelete: boolean;
   onPay: () => void;
   onAddExtraPayment: (nextAmount: string) => void;
+  onAskDelete: () => void;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
 }
 
-export function SharedLoanRow({ loan, currentUserEmail, onPay, onAddExtraPayment }: SharedLoanRowProps) {
+export function SharedLoanRow({
+  loan,
+  currentUserEmail,
+  confirmingDelete,
+  onPay,
+  onAddExtraPayment,
+  onAskDelete,
+  onConfirmDelete,
+  onCancelDelete
+}: SharedLoanRowProps) {
   const isEditable = isSharedLoanEditable(loan, currentUserEmail);
   const counterpartEmail = getSharedLoanCounterpartyEmail(loan, currentUserEmail);
   const currentInstallment = getSharedLoanCurrentInstallmentNumber(loan);
@@ -89,57 +102,83 @@ export function SharedLoanRow({ loan, currentUserEmail, onPay, onAddExtraPayment
           <span>{loan.notes || "Sin notas adicionales para este prestamo compartido."}</span>
         </div>
 
-        {isEditable && !loan.isCompleted ? (
+        {isEditable ? (
           <div className="loan-extra-payment">
-            <div className="loan-extra-payment__summary">
-              <span>La cuota mensual sigue activa hasta que marques el pago normal.</span>
-              <span>Un refuerzo descuenta saldo sin mover la cuota actual.</span>
-            </div>
+            {!loan.isCompleted ? (
+              <>
+                <div className="loan-extra-payment__summary">
+                  <span>La cuota mensual sigue activa hasta que marques el pago normal.</span>
+                  <span>Un refuerzo descuenta saldo sin mover la cuota actual.</span>
+                </div>
+
+                <div className="entry-card__actions entry-card__actions--shared">
+                  <button type="button" className="primary-button" onClick={onPay}>
+                    Registrar cuota
+                  </button>
+                  <button
+                    type="button"
+                    className="outline-button loan-extra-payment__toggle"
+                    onClick={() => {
+                      setShowExtraPayment((current) => !current);
+                      if (showExtraPayment) {
+                        setExtraPaymentDraft("");
+                      }
+                    }}
+                  >
+                    {showExtraPayment ? "Cancelar refuerzo" : "Agregar refuerzo"}
+                  </button>
+                </div>
+
+                {showExtraPayment ? (
+                  <div className="inline-editor inline-editor--loan-extra">
+                    <label className="inline-editor__field">
+                      <span>Monto del refuerzo</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={extraPaymentDraft}
+                        onChange={(event) => setExtraPaymentDraft(event.target.value)}
+                        placeholder="250000"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="outline-button"
+                      disabled={!canSaveExtraPayment}
+                      onClick={() => {
+                        onAddExtraPayment(extraPaymentDraft);
+                        setExtraPaymentDraft("");
+                        setShowExtraPayment(false);
+                      }}
+                    >
+                      Guardar refuerzo
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="loan-extra-payment__summary">
+                <span>Este prestamo compartido ya esta cerrado.</span>
+                <span>Igual puedes eliminarlo si ya no quieres verlo en la lista.</span>
+              </div>
+            )}
 
             <div className="entry-card__actions entry-card__actions--shared">
-              <button type="button" className="primary-button" onClick={onPay}>
-                Registrar cuota
-              </button>
-              <button
-                type="button"
-                className="outline-button loan-extra-payment__toggle"
-                onClick={() => {
-                  setShowExtraPayment((current) => !current);
-                  if (showExtraPayment) {
-                    setExtraPaymentDraft("");
-                  }
-                }}
-              >
-                {showExtraPayment ? "Cancelar refuerzo" : "Agregar refuerzo"}
-              </button>
-            </div>
-
-            {showExtraPayment ? (
-              <div className="inline-editor inline-editor--loan-extra">
-                <label className="inline-editor__field">
-                  <span>Monto del refuerzo</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={extraPaymentDraft}
-                    onChange={(event) => setExtraPaymentDraft(event.target.value)}
-                    placeholder="250000"
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="outline-button"
-                  disabled={!canSaveExtraPayment}
-                  onClick={() => {
-                    onAddExtraPayment(extraPaymentDraft);
-                    setExtraPaymentDraft("");
-                    setShowExtraPayment(false);
-                  }}
-                >
-                  Guardar refuerzo
+              {confirmingDelete ? (
+                <>
+                  <button type="button" className="danger-button" onClick={onConfirmDelete}>
+                    Confirmar borrar
+                  </button>
+                  <button type="button" className="ghost-button" onClick={onCancelDelete}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="ghost-button ghost-button--danger" onClick={onAskDelete}>
+                  Eliminar
                 </button>
-              </div>
-            ) : null}
+              )}
+            </div>
           </div>
         ) : null}
       </div>
