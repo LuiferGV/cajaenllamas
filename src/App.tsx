@@ -90,6 +90,7 @@ export default function App() {
   const [formError, setFormError] = useState<string | null>(null);
   const [sharedLoanFormError, setSharedLoanFormError] = useState<string | null>(null);
   const [isSubmittingSharedLoan, setIsSubmittingSharedLoan] = useState(false);
+  const [sharedCounterpartyFilter, setSharedCounterpartyFilter] = useState<string>("all");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingSharedDeleteId, setPendingSharedDeleteId] = useState<string | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -160,11 +161,47 @@ export default function App() {
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
   const activeSharedLoans = sharedLoans.filter((loan) => !loan.isCompleted);
-  const sharedLoansCreatedByMe = activeSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Me deben");
-  const sharedLoansIDebt = activeSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Debo");
+  const sharedCounterpartySummaries = Array.from(
+    activeSharedLoans.reduce((map, loan) => {
+      const counterpartEmail = getSharedLoanCounterpartyEmail(loan, userEmail);
+      const roleLabel = getSharedLoanRoleLabel(loan, userEmail);
+      const settlementAmount = getSharedLoanSettlementAmount(loan);
+      const current = map.get(counterpartEmail) ?? {
+        email: counterpartEmail,
+        activeCount: 0,
+        theyOweMe: 0,
+        iOwe: 0
+      };
+
+      current.activeCount += 1;
+      if (roleLabel === "Me deben") {
+        current.theyOweMe += settlementAmount;
+      } else {
+        current.iOwe += settlementAmount;
+      }
+
+      map.set(counterpartEmail, current);
+      return map;
+    }, new Map<string, { email: string; activeCount: number; theyOweMe: number; iOwe: number }>())
+  )
+    .map(([, value]) => value)
+    .sort((left, right) => {
+      const amountDiff = right.theyOweMe + right.iOwe - (left.theyOweMe + left.iOwe);
+      if (amountDiff !== 0) return amountDiff;
+      if (right.activeCount !== left.activeCount) return right.activeCount - left.activeCount;
+      return left.email.localeCompare(right.email);
+    });
+  const sharedAllLentTotal = sharedCounterpartySummaries.reduce((sum, summary) => sum + summary.theyOweMe, 0);
+  const sharedAllBorrowedTotal = sharedCounterpartySummaries.reduce((sum, summary) => sum + summary.iOwe, 0);
+  const filteredSharedLoans =
+    sharedCounterpartyFilter === "all"
+      ? activeSharedLoans
+      : activeSharedLoans.filter((loan) => getSharedLoanCounterpartyEmail(loan, userEmail) === sharedCounterpartyFilter);
+  const sharedLoansCreatedByMe = filteredSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Me deben");
+  const sharedLoansIDebt = filteredSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Debo");
   const sharedPrincipalLent = sharedLoansCreatedByMe.reduce((sum, loan) => sum + getSharedLoanSettlementAmount(loan), 0);
   const sharedPrincipalBorrowed = sharedLoansIDebt.reduce((sum, loan) => sum + getSharedLoanSettlementAmount(loan), 0);
-  const sharedPayments = sharedLoans
+  const sharedPayments = filteredSharedLoans
     .flatMap((loan) =>
       loan.history.map((entry) => ({
         ...entry,
@@ -175,6 +212,14 @@ export default function App() {
     )
     .sort((left, right) => right.changedAt.localeCompare(left.changedAt))
     .slice(0, 10);
+
+  useEffect(() => {
+    if (sharedCounterpartyFilter === "all") return;
+    const hasMatch = sharedCounterpartySummaries.some((summary) => summary.email === sharedCounterpartyFilter);
+    if (!hasMatch) {
+      setSharedCounterpartyFilter("all");
+    }
+  }, [sharedCounterpartyFilter, sharedCounterpartySummaries]);
 
   const handleDraftChange = (field: keyof FinanceDraft, value: string) => {
     setDraft((current) => {
@@ -1255,6 +1300,67 @@ export default function App() {
 
           {sharedLoansError ? <div className="alert-banner alert-banner--danger">{sharedLoansError}</div> : null}
 
+          <article className="surface-card shared-card shared-partners-card">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Usuarios vinculados</p>
+                <h2>Filtra por persona</h2>
+              </div>
+              <span className="status-pill status-pill--neutral">
+                {sharedCounterpartyFilter === "all" ? "Mostrando todo" : sharedCounterpartyFilter}
+              </span>
+            </div>
+
+            <p className="shared-card__copy">
+              Si tienes movimientos con varias personas, entra primero por usuario y luego revisa sus gastos compartidos sin mezclar todo en una sola lista.
+            </p>
+
+            {sharedCounterpartySummaries.length === 0 ? (
+              <div className="empty-state empty-state--compact">
+                <h3>Aun no tienes usuarios en compartidos</h3>
+                <p>Cuando cargues tu primer gasto compartido, aqui apareceran las personas con las que tienes movimientos activos.</p>
+              </div>
+            ) : (
+              <div className="shared-partner-grid">
+                <button
+                  type="button"
+                  className={`shared-partner-card ${sharedCounterpartyFilter === "all" ? "is-active" : ""}`}
+                  onClick={() => setSharedCounterpartyFilter("all")}
+                >
+                  <div className="shared-partner-card__header">
+                    <strong>Mostrar todo</strong>
+                    <span className="status-pill status-pill--neutral">{activeSharedLoans.length} activos</span>
+                  </div>
+                  <div className="shared-partner-card__stats">
+                    <span>Me deben {formatCurrency(sharedAllLentTotal)}</span>
+                    <span>Debo {formatCurrency(sharedAllBorrowedTotal)}</span>
+                  </div>
+                </button>
+
+                {sharedCounterpartySummaries.map((summary) => (
+                  <button
+                    key={summary.email}
+                    type="button"
+                    className={`shared-partner-card ${sharedCounterpartyFilter === summary.email ? "is-active" : ""}`}
+                    onClick={() => setSharedCounterpartyFilter(summary.email)}
+                  >
+                    <div className="shared-partner-card__header">
+                      <div className="shared-partner-card__identity">
+                        <CompanyLogo entityName={summary.email} kind="loan" size="sm" searchText={summary.email} />
+                        <strong>{summary.email}</strong>
+                      </div>
+                      <span className="status-pill status-pill--neutral">{summary.activeCount} activo(s)</span>
+                    </div>
+                    <div className="shared-partner-card__stats">
+                      <span>Me deben {formatCurrency(summary.theyOweMe)}</span>
+                      <span>Debo {formatCurrency(summary.iOwe)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </article>
+
           <section className="shared-stage__grid">
             <article className="surface-card shared-card">
               <div className="section-heading">
@@ -1274,7 +1380,11 @@ export default function App() {
               {sharedLoansCreatedByMe.length === 0 ? (
                 <div className="empty-state empty-state--compact">
                   <h3>Aun no tienes gastos compartidos a favor</h3>
-                  <p>Usa el boton + desde esta pestaña para cargar una compra y repartirla con otro usuario del sistema.</p>
+                  <p>
+                    {sharedCounterpartyFilter === "all"
+                      ? "Usa el boton + desde esta pestaña para cargar una compra y repartirla con otro usuario del sistema."
+                      : "Con este usuario no tienes gastos a favor en este momento."}
+                  </p>
                 </div>
               ) : (
                 <div className="shared-loan-list">
@@ -1314,7 +1424,11 @@ export default function App() {
               {sharedLoansIDebt.length === 0 ? (
                 <div className="empty-state empty-state--compact">
                   <h3>No tienes gastos compartidos pendientes ahora mismo</h3>
-                  <p>Cuando alguien reparta una compra contigo o tu mismo cargues una deuda compartida, aparecera aqui automaticamente.</p>
+                  <p>
+                    {sharedCounterpartyFilter === "all"
+                      ? "Cuando alguien reparta una compra contigo o tu mismo cargues una deuda compartida, aparecera aqui automaticamente."
+                      : "Con este usuario no tienes deuda pendiente en este momento."}
+                  </p>
                 </div>
               ) : (
                 <div className="shared-loan-list">

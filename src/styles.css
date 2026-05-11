@@ -1671,6 +1671,76 @@ select {
   color: var(--text-main);
 }
 
+.shared-partners-card {
+  margin-top: 0;
+}
+
+.shared-partner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+}
+
+.shared-partner-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(146, 187, 214, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(89, 173, 255, 0.08), transparent 28%),
+    rgba(10, 19, 29, 0.72);
+  color: var(--text-strong);
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.shared-partner-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(89, 173, 255, 0.28);
+}
+
+.shared-partner-card.is-active {
+  border-color: rgba(89, 173, 255, 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(89, 173, 255, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(89, 173, 255, 0.08), rgba(10, 19, 29, 0.84));
+  box-shadow: 0 16px 28px rgba(89, 173, 255, 0.12);
+}
+
+.shared-partner-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shared-partner-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shared-partner-card__identity strong,
+.shared-partner-card__header strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shared-partner-card__stats {
+  display: grid;
+  gap: 6px;
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+
 .shared-loan-list {
   display: grid;
   gap: 16px;
