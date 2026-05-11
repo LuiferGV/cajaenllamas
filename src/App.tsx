@@ -85,7 +85,7 @@ export default function App() {
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isSharedComposerOpen, setIsSharedComposerOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
-  const [loginEmail, setLoginEmail] = useState("luifer.gv@gmail.com");
+  const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [manualAuthError, setManualAuthError] = useState<string | null>(null);

@@ -112,7 +112,7 @@ export function AuthScreen({
               <input
                 type="email"
                 value={email}
-                placeholder="luifer.gv@gmail.com"
+                placeholder="Email del usuario"
                 autoComplete="email"
                 disabled={sessionState === "not-configured" || isSubmitting}
                 onChange={(event) => onEmailChange(event.target.value)}

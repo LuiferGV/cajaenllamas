@@ -64,7 +64,7 @@ export function SharedLoanForm({
             type="email"
             value={values.borrowerEmail}
             onChange={(event) => onChange("borrowerEmail", event.target.value)}
-            placeholder="patohab@gmail.com"
+            placeholder="Email del usuario"
           />
         </label>
 
