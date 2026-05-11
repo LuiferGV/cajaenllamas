@@ -2,7 +2,6 @@ import { createId, formatDateKey, getNextDueDate, parseAmount, todayKey } from "
 import type { SharedLoan, SharedLoanDraft, SharedLoanPaymentEntry } from "../types";
 
 type SharedCounterparty = {
-  borrowerUid: string;
   borrowerEmail: string;
   lenderUid: string;
   lenderEmail: string;
@@ -54,7 +53,7 @@ export function buildSharedLoanFromDraft(
     title: draft.title.trim(),
     lenderUid: counterpart.lenderUid,
     lenderEmail: counterpart.lenderEmail.trim().toLowerCase(),
-    borrowerUid: counterpart.borrowerUid,
+    borrowerUid: "",
     borrowerEmail: counterpart.borrowerEmail.trim().toLowerCase(),
     amount,
     principalAmount,
@@ -141,12 +140,13 @@ export function sortSharedLoans(left: SharedLoan, right: SharedLoan) {
   return left.title.localeCompare(right.title);
 }
 
-export function getSharedLoanCounterpartyEmail(loan: SharedLoan, currentUserId: string | null) {
-  return loan.lenderUid === currentUserId ? loan.borrowerEmail : loan.lenderEmail;
+export function getSharedLoanCounterpartyEmail(loan: SharedLoan, currentUserEmail: string | null) {
+  const normalizedEmail = currentUserEmail?.trim().toLowerCase() ?? "";
+  return loan.lenderEmail === normalizedEmail ? loan.borrowerEmail : loan.lenderEmail;
 }
 
-export function isSharedLoanEditable(loan: SharedLoan, currentUserId: string | null) {
-  return Boolean(currentUserId) && loan.lenderUid === currentUserId;
+export function isSharedLoanEditable(loan: SharedLoan, currentUserEmail: string | null) {
+  return Boolean(currentUserEmail) && loan.lenderEmail === currentUserEmail?.trim().toLowerCase();
 }
 
 export function registerSharedLoanInstallment(
@@ -240,6 +240,6 @@ export function getSharedLoanCurrentInstallmentNumber(loan: SharedLoan) {
   return Math.min(loan.installmentsPaid + 1, loan.installmentsTotal);
 }
 
-export function getSharedLoanRoleLabel(loan: SharedLoan, currentUserId: string | null) {
-  return loan.lenderUid === currentUserId ? "Me deben" : "Debo";
+export function getSharedLoanRoleLabel(loan: SharedLoan, currentUserEmail: string | null) {
+  return loan.lenderEmail === currentUserEmail?.trim().toLowerCase() ? "Me deben" : "Debo";
 }

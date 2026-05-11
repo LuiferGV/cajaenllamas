@@ -10,30 +10,11 @@
         }
       }
     },
-    "userProfiles": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
-      }
-    },
-    "emailDirectory": {
-      "$emailKey": {
-        ".read": "auth != null",
-        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || data.child('uid').val() === auth.uid)"
-      }
-    },
     "sharedLoans": {
+      ".indexOn": ["lenderEmail", "borrowerEmail"],
+      ".read": "auth != null && ((query.orderByChild == 'lenderEmail' && query.equalTo == auth.token.email) || (query.orderByChild == 'borrowerEmail' && query.equalTo == auth.token.email))",
       "$loanId": {
-        ".read": "auth != null && (data.child('lenderUid').val() === auth.uid || data.child('borrowerUid').val() === auth.uid)",
-        ".write": "auth != null && ((!data.exists() && newData.child('lenderUid').val() === auth.uid) || data.child('lenderUid').val() === auth.uid)"
-      }
-    },
-    "userSharedLoans": {
-      "$uid": {
-        "$loanId": {
-          ".read": "auth != null && auth.uid === $uid",
-          ".write": "auth != null && (auth.uid === $uid || root.child('sharedLoans').child($loanId).child('lenderUid').val() === auth.uid)"
-        }
+        ".write": "auth != null && (((!data.exists()) && newData.child('lenderEmail').val() === auth.token.email) || data.child('lenderEmail').val() === auth.token.email)"
       }
     }
   }

@@ -51,7 +51,6 @@ import {
   registerSharedLoanInstallment,
   validateSharedLoanDraft
 } from "./lib/sharedLoans";
-import { resolveUserByEmail } from "./lib/firebase";
 import type { EntryKind, FinanceDraft, FinanceItem, FinanceState, SharedLoan, SharedLoanDraft } from "./types";
 
 type FormMode = "create" | "edit";
@@ -70,7 +69,7 @@ export default function App() {
   const { financeState, persistState } = useFinanceData(sessionState === "authenticated", userId);
   const { sharedLoans, sharedLoansState, sharedLoansError, saveSharedLoan } = useSharedLoansData(
     sessionState === "authenticated",
-    userId
+    userEmail
   );
   const [draft, setDraft] = useState<FinanceDraft>(() => createEmptyDraft());
   const [sharedLoanDraft, setSharedLoanDraft] = useState<SharedLoanDraft>(() => createEmptySharedLoanDraft());
@@ -146,11 +145,12 @@ export default function App() {
   const visibleCategorySummaries = categorySummaries.filter((summary) => summary.activeCount > 0);
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
-  const sharedLoansAsLender = sharedLoans.filter((loan) => loan.lenderUid === userId);
-  const sharedLoansAsBorrower = sharedLoans.filter((loan) => loan.borrowerUid === userId);
+  const normalizedUserEmail = userEmail?.trim().toLowerCase() ?? "";
+  const sharedLoansAsLender = sharedLoans.filter((loan) => loan.lenderEmail === normalizedUserEmail);
+  const sharedLoansAsBorrower = sharedLoans.filter((loan) => loan.borrowerEmail === normalizedUserEmail);
   const activeSharedLoans = sharedLoans.filter((loan) => !loan.isCompleted);
-  const sharedLoansCreatedByMe = activeSharedLoans.filter((loan) => isSharedLoanEditable(loan, userId));
-  const sharedLoansIDebt = activeSharedLoans.filter((loan) => !isSharedLoanEditable(loan, userId));
+  const sharedLoansCreatedByMe = activeSharedLoans.filter((loan) => isSharedLoanEditable(loan, userEmail));
+  const sharedLoansIDebt = activeSharedLoans.filter((loan) => !isSharedLoanEditable(loan, userEmail));
   const sharedPrincipalLent = sharedLoansAsLender.reduce((sum, loan) => sum + loan.principalRemaining, 0);
   const sharedPrincipalBorrowed = sharedLoansAsBorrower.reduce((sum, loan) => sum + loan.principalRemaining, 0);
   const sharedPayments = sharedLoans
@@ -389,17 +389,10 @@ export default function App() {
 
     void (async () => {
       try {
-        const borrower = await resolveUserByEmail(sharedLoanDraft.borrowerEmail.trim());
-        if (!borrower) {
-          setSharedLoanFormError("Ese email aun no existe en el sistema. La otra persona debe crear su cuenta primero.");
-          return;
-        }
-
         const sharedLoan = buildSharedLoanFromDraft(sharedLoanDraft, {
           lenderUid: userId,
           lenderEmail: userEmail,
-          borrowerUid: borrower.uid,
-          borrowerEmail: borrower.email
+          borrowerEmail: sharedLoanDraft.borrowerEmail.trim()
         });
 
         const saved = await saveSharedLoan(sharedLoan);
@@ -422,7 +415,7 @@ export default function App() {
   const handleSharedLoanPay = (loanId: string) => {
     const loan = sharedLoans.find((entry) => entry.id === loanId);
     if (!loan || !userId || !userEmail) return;
-    if (!isSharedLoanEditable(loan, userId)) return;
+    if (!isSharedLoanEditable(loan, userEmail)) return;
 
     const nextLoan = registerSharedLoanInstallment(loan, userId, userEmail);
     void saveSharedLoan(nextLoan);
@@ -432,7 +425,7 @@ export default function App() {
     const loan = sharedLoans.find((entry) => entry.id === loanId);
     const parsedAmount = parseAmount(nextAmount);
     if (!loan || !userId || !userEmail || parsedAmount <= 0) return;
-    if (!isSharedLoanEditable(loan, userId)) return;
+    if (!isSharedLoanEditable(loan, userEmail)) return;
 
     const nextLoan = registerSharedLoanExtraPayment(loan, parsedAmount, userId, userEmail);
     void saveSharedLoan(nextLoan);
@@ -1235,7 +1228,7 @@ export default function App() {
                     <SharedLoanRow
                       key={loan.id}
                       loan={loan}
-                      currentUserId={userId}
+                      currentUserEmail={userEmail}
                       onPay={() => handleSharedLoanPay(loan.id)}
                       onAddExtraPayment={(nextAmount) => handleSharedLoanExtraPayment(loan.id, nextAmount)}
                     />
@@ -1270,7 +1263,7 @@ export default function App() {
                     <SharedLoanRow
                       key={loan.id}
                       loan={loan}
-                      currentUserId={userId}
+                      currentUserEmail={userEmail}
                       onPay={() => handleSharedLoanPay(loan.id)}
                       onAddExtraPayment={(nextAmount) => handleSharedLoanExtraPayment(loan.id, nextAmount)}
                     />
@@ -1303,14 +1296,14 @@ export default function App() {
                     <article key={payment.id} className="history-item">
                       <div className="history-item__identity">
                         <CompanyLogo
-                          entityName={payment.lenderUid === userId ? payment.borrowerEmail : payment.lenderEmail}
+                          entityName={payment.lenderEmail === normalizedUserEmail ? payment.borrowerEmail : payment.lenderEmail}
                           kind="loan"
                           size="sm"
                         />
                         <div>
                           <strong>{payment.title}</strong>
                           <p className="history-item__entity">
-                            {payment.lenderUid === userId ? "Me deben" : "Debo"} · {payment.recordedByEmail}
+                            {payment.lenderEmail === normalizedUserEmail ? "Me deben" : "Debo"} · {payment.recordedByEmail}
                           </p>
                           <p>
                             {payment.paymentType === "loan_extra_payment"

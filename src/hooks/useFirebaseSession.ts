@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ensureUserDirectoryEntry, hasFirebaseCoreConfig, signIn, signOutSession, signUp, subscribeAuth } from "../lib/firebase";
+import { hasFirebaseCoreConfig, signIn, signOutSession, signUp, subscribeAuth } from "../lib/firebase";
 
 export type AuthMode = "login" | "register";
 
@@ -51,9 +51,6 @@ export function useFirebaseSession(): FirebaseSessionState {
         setUserId(user?.uid ?? null);
         setSessionState(user ? "authenticated" : "signed-out");
         setAuthError(null);
-        if (user?.uid) {
-          void ensureUserDirectoryEntry(user.uid, user.email);
-        }
       },
       (error) => {
         console.error("No se pudo validar la sesion de Firebase", error);

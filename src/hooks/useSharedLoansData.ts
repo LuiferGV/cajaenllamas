@@ -13,7 +13,7 @@ interface SharedLoansDataState {
   deleteSharedLoan: (sharedLoan: SharedLoan) => Promise<boolean>;
 }
 
-export function useSharedLoansData(enabled: boolean, userId: string | null): SharedLoansDataState {
+export function useSharedLoansData(enabled: boolean, userEmail: string | null): SharedLoansDataState {
   const hasDatabaseConfig = hasRealtimeDatabaseConfig();
   const [sharedLoans, setSharedLoans] = useState<SharedLoan[]>([]);
   const [sharedLoansState, setSharedLoansState] = useState<SharedLoansState>(
@@ -29,7 +29,7 @@ export function useSharedLoansData(enabled: boolean, userId: string | null): Sha
       return undefined;
     }
 
-    if (!enabled || !userId) {
+    if (!enabled || !userEmail) {
       setSharedLoans([]);
       setSharedLoansState("idle");
       setSharedLoansError(null);
@@ -40,7 +40,7 @@ export function useSharedLoansData(enabled: boolean, userId: string | null): Sha
     setSharedLoansError(null);
 
     const unsubscribe = subscribeSharedLoans(
-      userId,
+      userEmail,
       (nextSharedLoans) => {
         setSharedLoans(nextSharedLoans);
         setSharedLoansState("connected");
@@ -54,14 +54,14 @@ export function useSharedLoansData(enabled: boolean, userId: string | null): Sha
     );
 
     return unsubscribe;
-  }, [enabled, hasDatabaseConfig, userId]);
+  }, [enabled, hasDatabaseConfig, userEmail]);
 
   const saveSharedLoan = async (sharedLoan: SharedLoan) => {
     const previousLoans = sharedLoans;
     const nextLoans = [...sharedLoans.filter((entry) => entry.id !== sharedLoan.id), sharedLoan].sort(sortSharedLoans);
     setSharedLoans(nextLoans);
 
-    if (!hasDatabaseConfig || !enabled || !userId) {
+    if (!hasDatabaseConfig || !enabled || !userEmail) {
       setSharedLoansState(hasDatabaseConfig ? "idle" : "not-configured");
       return false;
     }
@@ -86,7 +86,7 @@ export function useSharedLoansData(enabled: boolean, userId: string | null): Sha
     const previousLoans = sharedLoans;
     setSharedLoans((current) => current.filter((entry) => entry.id !== sharedLoan.id));
 
-    if (!hasDatabaseConfig || !enabled || !userId) {
+    if (!hasDatabaseConfig || !enabled || !userEmail) {
       setSharedLoansState(hasDatabaseConfig ? "idle" : "not-configured");
       return false;
     }

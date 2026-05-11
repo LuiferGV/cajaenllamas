@@ -12,14 +12,14 @@ import type { SharedLoan } from "../types";
 
 interface SharedLoanRowProps {
   loan: SharedLoan;
-  currentUserId: string | null;
+  currentUserEmail: string | null;
   onPay: () => void;
   onAddExtraPayment: (nextAmount: string) => void;
 }
 
-export function SharedLoanRow({ loan, currentUserId, onPay, onAddExtraPayment }: SharedLoanRowProps) {
-  const isEditable = isSharedLoanEditable(loan, currentUserId);
-  const counterpartEmail = getSharedLoanCounterpartyEmail(loan, currentUserId);
+export function SharedLoanRow({ loan, currentUserEmail, onPay, onAddExtraPayment }: SharedLoanRowProps) {
+  const isEditable = isSharedLoanEditable(loan, currentUserEmail);
+  const counterpartEmail = getSharedLoanCounterpartyEmail(loan, currentUserEmail);
   const currentInstallment = getSharedLoanCurrentInstallmentNumber(loan);
   const installmentsAfterCurrent = getSharedLoanInstallmentsAfterCurrent(loan);
   const [showExtraPayment, setShowExtraPayment] = useState(false);
@@ -40,7 +40,7 @@ export function SharedLoanRow({ loan, currentUserId, onPay, onAddExtraPayment }:
             <div className="entry-card__identity-copy">
               <div className="entry-card__chips">
                 <span className={`status-pill ${loan.isCompleted ? "status-pill--success" : "status-pill--today"}`}>
-                  {loan.isCompleted ? "Completado" : getSharedLoanRoleLabel(loan, currentUserId)}
+                  {loan.isCompleted ? "Completado" : getSharedLoanRoleLabel(loan, currentUserEmail)}
                 </span>
                 <span className="tag-chip tag-chip--loan">Prestamo compartido</span>
                 <span className="tag-chip">
