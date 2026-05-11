@@ -6,10 +6,11 @@ interface CompanyLogoProps {
   entityName: string;
   kind: EntryKind;
   size?: "sm" | "md";
+  searchText?: string;
 }
 
-export function CompanyLogo({ entityName, kind, size = "md" }: CompanyLogoProps) {
-  const brand = getCompanyBrand(entityName);
+export function CompanyLogo({ entityName, kind, size = "md", searchText }: CompanyLogoProps) {
+  const brand = getCompanyBrand(searchText?.trim() ? searchText : entityName);
   const kindTheme = getKindTheme(kind);
 
   if (brand.src) {

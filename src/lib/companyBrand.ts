@@ -28,8 +28,11 @@ const LOGO_ALIASES: Record<string, string[]> = {
   continental: ["continental", "banco continental", "contiental", "banco contiental"],
   coomecipar: ["coomecipar", "cooperativa coomecipar"],
   essap: ["essap"],
+  farmacia: ["farmacia", "punto farma", "puntofarma", "farmam"],
   itau: ["itau", "itaú", "banco itau", "financiera itau"],
   personal: ["personal", "personal flow", "flow"],
+  petrobras: ["petrobras"],
+  shell: ["shell", "combus", "combustible", "nafta"],
   sps: ["sps"],
   tigo: ["tigo", "tigo hogar"],
   ueno: ["ueno", "ueno bank"]

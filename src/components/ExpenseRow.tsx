@@ -78,7 +78,7 @@ export function ExpenseRow({
       <div className="entry-card__main">
         <div className="entry-card__heading">
           <div className="entry-card__identity">
-            <CompanyLogo entityName={displayEntity} kind={item.kind} />
+            <CompanyLogo entityName={displayEntity} kind={item.kind} searchText={`${displayEntity} ${displayTitle}`} />
             <div className="entry-card__identity-copy">
               <div className="entry-card__chips">
                 <span className={`status-pill status-pill--${status.tone}`}>{status.label}</span>

@@ -778,7 +778,12 @@ export default function App() {
                       return (
                         <article key={item.id} className="summary-loan-card">
                           <div className="summary-loan-card__identity">
-                            <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                              <CompanyLogo
+                                entityName={displayEntity}
+                                kind={item.kind}
+                                size="sm"
+                                searchText={`${displayEntity} ${displayTitle}`}
+                              />
                             <div className="summary-loan-card__copy">
                               <strong>{displayTitle}</strong>
                               <p>{displayEntity}</p>
@@ -847,7 +852,12 @@ export default function App() {
                       return (
                         <article key={item.id} className="summary-expense-card summary-expense-card--variable">
                           <div className="summary-expense-card__identity">
-                            <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                              <CompanyLogo
+                                entityName={displayEntity}
+                                kind={item.kind}
+                                size="sm"
+                                searchText={`${displayEntity} ${displayTitle}`}
+                              />
                             <div className="summary-expense-card__copy">
                               <strong>{displayTitle}</strong>
                               <p>{displayEntity}</p>
@@ -902,7 +912,12 @@ export default function App() {
                       return (
                         <article key={item.id} className="summary-expense-card summary-expense-card--fixed">
                           <div className="summary-expense-card__identity">
-                            <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                              <CompanyLogo
+                                entityName={displayEntity}
+                                kind={item.kind}
+                                size="sm"
+                                searchText={`${displayEntity} ${displayTitle}`}
+                              />
                             <div className="summary-expense-card__copy">
                               <strong>{displayTitle}</strong>
                               <p>{displayEntity}</p>
@@ -959,7 +974,12 @@ export default function App() {
                       return (
                         <article key={item.id} className="summary-expense-card summary-expense-card--recurring">
                           <div className="summary-expense-card__identity">
-                            <CompanyLogo entityName={displayEntity} kind={item.kind} size="sm" />
+                              <CompanyLogo
+                                entityName={displayEntity}
+                                kind={item.kind}
+                                size="sm"
+                                searchText={`${displayEntity} ${displayTitle}`}
+                              />
                             <div className="summary-expense-card__copy">
                               <strong>{displayTitle}</strong>
                               <p>{displayEntity}</p>

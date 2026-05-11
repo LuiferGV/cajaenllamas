@@ -31,7 +31,12 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
             return (
               <article key={entry.id} className="history-item">
                 <div className="history-item__identity">
-                  <CompanyLogo entityName={displayEntity} kind={entry.kind} size="sm" />
+                  <CompanyLogo
+                    entityName={displayEntity}
+                    kind={entry.kind}
+                    size="sm"
+                    searchText={`${displayEntity} ${displayTitle}`}
+                  />
                   <div>
                     <strong>{displayTitle}</strong>
                     {entry.conceptName.trim() ? <p className="history-item__entity">{displayEntity}</p> : null}

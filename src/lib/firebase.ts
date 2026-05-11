@@ -225,11 +225,9 @@ export function subscribeSharedLoans(
 
 export async function saveSharedLoanRemote(sharedLoan: SharedLoan) {
   const database = ensureDatabase();
-  await update(ref(database), {
-    [`sharedLoans/${sharedLoan.id}`]: sharedLoan,
-    [`userSharedLoans/${sharedLoan.lenderUid}/${sharedLoan.id}`]: true,
-    [`userSharedLoans/${sharedLoan.borrowerUid}/${sharedLoan.id}`]: true
-  });
+  await set(ref(database, `sharedLoans/${sharedLoan.id}`), sharedLoan);
+  await set(ref(database, `userSharedLoans/${sharedLoan.lenderUid}/${sharedLoan.id}`), true);
+  await set(ref(database, `userSharedLoans/${sharedLoan.borrowerUid}/${sharedLoan.id}`), true);
 }
 
 export async function deleteSharedLoanRemote(sharedLoan: SharedLoan) {
