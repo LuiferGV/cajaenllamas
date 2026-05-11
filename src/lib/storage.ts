@@ -1,4 +1,12 @@
-import { buildDisplayName, EMPTY_STATE, parseLoanPlanMode, sortItems, todayKey, toLoanInstallmentPlanEntries } from "./finance";
+import {
+  buildDisplayName,
+  EMPTY_STATE,
+  normalizeConceptName,
+  parseLoanPlanMode,
+  sortItems,
+  todayKey,
+  toLoanInstallmentPlanEntries
+} from "./finance";
 import type {
   EntryKind,
   FinanceItem,
@@ -19,6 +27,8 @@ function normalizeKind(kind: string | undefined): EntryKind {
 }
 
 function normalizeRecurrence(recurrence: string | undefined): Recurrence {
+  if (recurrence === "daily") return "daily";
+  if (recurrence === "weekly") return "weekly";
   if (recurrence === "bimonthly") return "bimonthly";
   if (recurrence === "quarterly") return "quarterly";
   if (recurrence === "semiannual") return "semiannual";
@@ -78,7 +88,7 @@ function normalizeItem(rawItem: Partial<FinanceItem> & { kind?: string; recurren
 
   const entityName =
     typeof rawItem.entityName === "string" && rawItem.entityName.trim() ? rawItem.entityName : rawItem.name ?? "Registro";
-  const conceptName = typeof rawItem.conceptName === "string" ? rawItem.conceptName : "";
+  const conceptName = normalizeConceptName(kind, typeof rawItem.conceptName === "string" ? rawItem.conceptName : "");
 
   return {
     id: rawItem.id ?? `legacy-item-${Math.random().toString(36).slice(2, 8)}`,
@@ -127,7 +137,8 @@ function normalizeHistoryEntry(
     typeof rawEntry.entityName === "string" && rawEntry.entityName.trim()
       ? rawEntry.entityName
       : rawEntry.itemName ?? "Registro";
-  const conceptName = typeof rawEntry.conceptName === "string" ? rawEntry.conceptName : "";
+  const kind = normalizeKind(rawEntry.kind);
+  const conceptName = normalizeConceptName(kind, typeof rawEntry.conceptName === "string" ? rawEntry.conceptName : "");
 
   return {
     installmentNumber: typeof rawEntry.installmentNumber === "number" ? rawEntry.installmentNumber : null,
@@ -137,7 +148,7 @@ function normalizeHistoryEntry(
     itemName: buildDisplayName(entityName, conceptName),
     entityName,
     conceptName,
-    kind: normalizeKind(rawEntry.kind),
+    kind,
     amount: typeof rawEntry.amount === "number" ? rawEntry.amount : 0,
     recurrence: normalizeRecurrence(rawEntry.recurrence),
     paidAt: rawEntry.paidAt ?? todayKey(),
@@ -145,7 +156,7 @@ function normalizeHistoryEntry(
     nextDueDate: rawEntry.nextDueDate ?? null,
     paymentType: normalizePaymentType(
       rawEntry.paymentType,
-      normalizeKind(rawEntry.kind),
+      kind,
       typeof rawEntry.installmentNumber === "number" ? rawEntry.installmentNumber : null
     )
   };

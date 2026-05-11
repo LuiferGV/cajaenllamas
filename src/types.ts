@@ -1,6 +1,6 @@
 export type EntryKind = "loan" | "fixed_expense" | "variable_expense" | "recurring_expense";
 
-export type Recurrence = "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
+export type Recurrence = "daily" | "weekly" | "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
 
 export type LoanPlanMode = "fixed" | "schedule";
 

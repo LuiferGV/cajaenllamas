@@ -1,7 +1,7 @@
 import { CompanyLogo } from "./CompanyLogo";
 import { getCompanyBrand } from "../lib/companyBrand";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
-import { getKindTheme, KIND_OPTIONS, parseCount, RECURRENCE_OPTIONS } from "../lib/finance";
+import { getKindTheme, KIND_OPTIONS, parseCount, RECURRENCE_PICKER_OPTIONS } from "../lib/finance";
 import type { FinanceDraft } from "../types";
 
 const KIND_COPY: Record<
@@ -387,7 +387,7 @@ export function FinanceForm({
           <div className={`field field--full field--${kindTheme}`}>
             <span>Recurrencia</span>
             <div className="recurrence-picker" role="group" aria-label="Recurrencia">
-              {RECURRENCE_OPTIONS.map((option) => {
+              {RECURRENCE_PICKER_OPTIONS.map((option) => {
                 const isActive = values.recurrence === option.value;
 
                 return (

@@ -6,6 +6,7 @@ interface SharedLoanFormProps {
   values: SharedLoanDraft;
   mode: "create";
   error: string | null;
+  isSubmitting: boolean;
   currentUserEmail: string | null;
   onChange: (field: keyof SharedLoanDraft, value: string) => void;
   onSubmit: () => void;
@@ -17,6 +18,7 @@ interface SharedLoanFormProps {
 export function SharedLoanForm({
   values,
   error,
+  isSubmitting,
   currentUserEmail,
   onChange,
   onSubmit,
@@ -36,7 +38,7 @@ export function SharedLoanForm({
     principalAmount > 0 && installmentAmount > 0 ? Math.max(principalAmount - installmentAmount, 0) : 0;
 
   return (
-    <form className="composer-card composer-card--loan" onSubmit={handleSubmit}>
+    <form className="composer-card composer-card--loan" onSubmit={handleSubmit} noValidate>
       <div className="section-heading">
         <div>
           <p className="eyebrow">Gasto compartido</p>
@@ -65,6 +67,7 @@ export function SharedLoanForm({
             value={values.borrowerEmail}
             onChange={(event) => onChange("borrowerEmail", event.target.value)}
             placeholder="Email del usuario"
+            disabled={isSubmitting}
           />
         </label>
 
@@ -75,6 +78,7 @@ export function SharedLoanForm({
             value={values.title}
             onChange={(event) => onChange("title", event.target.value)}
             placeholder="Prestamo efectivo, viaje, moto, adelanto"
+            disabled={isSubmitting}
           />
         </label>
 
@@ -86,6 +90,7 @@ export function SharedLoanForm({
             value={values.principalAmount}
             onChange={(event) => onChange("principalAmount", event.target.value)}
             placeholder="5000000"
+            disabled={isSubmitting}
           />
         </label>
 
@@ -97,6 +102,7 @@ export function SharedLoanForm({
             value={values.amount}
             onChange={(event) => onChange("amount", event.target.value)}
             placeholder="1000000"
+            disabled={isSubmitting}
           />
         </label>
 
@@ -108,12 +114,13 @@ export function SharedLoanForm({
             value={values.installmentsTotal}
             onChange={(event) => onChange("installmentsTotal", event.target.value)}
             placeholder="5"
+            disabled={isSubmitting}
           />
         </label>
 
         <label className="field field--loan">
           <span>Primera cuota vence</span>
-          <input type="date" value={values.dueDate} onChange={(event) => onChange("dueDate", event.target.value)} />
+          <input type="date" value={values.dueDate} onChange={(event) => onChange("dueDate", event.target.value)} disabled={isSubmitting} />
         </label>
 
         {principalAmount > 0 && installmentAmount > 0 ? (
@@ -132,6 +139,7 @@ export function SharedLoanForm({
             value={values.notes}
             onChange={(event) => onChange("notes", event.target.value)}
             placeholder="Ej.: solo yo registro pagos, acuerdo verbal, observaciones o recordatorios."
+            disabled={isSubmitting}
           />
         </label>
       </div>
@@ -139,10 +147,10 @@ export function SharedLoanForm({
       {error ? <div className="alert-banner alert-banner--danger">{error}</div> : null}
 
       <div className="form-actions">
-        <button type="submit" className="primary-button">
-          Guardar prestamo compartido
+        <button type="submit" className="primary-button" disabled={isSubmitting}>
+          {isSubmitting ? "Guardando..." : "Guardar prestamo compartido"}
         </button>
-        <button type="button" className="ghost-button" onClick={onReset}>
+        <button type="button" className="ghost-button" onClick={onReset} disabled={isSubmitting}>
           Cancelar
         </button>
       </div>

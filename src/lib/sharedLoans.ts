@@ -8,6 +8,8 @@ type SharedCounterparty = {
   lenderEmail: string;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function createEmptySharedLoanDraft(): SharedLoanDraft {
   return {
     borrowerEmail: "",
@@ -21,8 +23,13 @@ export function createEmptySharedLoanDraft(): SharedLoanDraft {
 }
 
 export function validateSharedLoanDraft(draft: SharedLoanDraft, currentUserEmail: string | null) {
-  if (!draft.borrowerEmail.trim()) return "Escribe el email de la persona que te debe.";
-  if (currentUserEmail && draft.borrowerEmail.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) {
+  const borrowerEmail = draft.borrowerEmail.trim().toLowerCase();
+
+  if (!borrowerEmail) return "Escribe el email de la persona que te debe.";
+  if (!EMAIL_PATTERN.test(borrowerEmail)) {
+    return "Escribe un email valido para el usuario que te debe.";
+  }
+  if (currentUserEmail && borrowerEmail === currentUserEmail.trim().toLowerCase()) {
     return "No puedes crearte un prestamo compartido contigo mismo.";
   }
   if (!draft.title.trim()) return "Escribe un nombre o motivo para el prestamo compartido.";

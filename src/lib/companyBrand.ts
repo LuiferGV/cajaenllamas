@@ -32,7 +32,7 @@ const LOGO_ALIASES: Record<string, string[]> = {
   itau: ["itau", "itaú", "banco itau", "financiera itau"],
   personal: ["personal", "personal flow", "flow"],
   petrobras: ["petrobras"],
-  shell: ["shell", "combus", "combustible", "nafta"],
+  shell: ["shell", "combus", "combud", "combustible", "nafta"],
   sps: ["sps"],
   tigo: ["tigo", "tigo hogar"],
   ueno: ["ueno", "ueno bank"]

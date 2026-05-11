@@ -81,6 +81,7 @@ export default function App() {
   const [kindFilter, setKindFilter] = useState<EntryKind | "all">("all");
   const [formError, setFormError] = useState<string | null>(null);
   const [sharedLoanFormError, setSharedLoanFormError] = useState<string | null>(null);
+  const [isSubmittingSharedLoan, setIsSubmittingSharedLoan] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isSharedComposerOpen, setIsSharedComposerOpen] = useState(false);
@@ -252,6 +253,7 @@ export default function App() {
   const resetSharedLoanForm = () => {
     setSharedLoanDraft(createEmptySharedLoanDraft());
     setSharedLoanFormError(null);
+    setIsSubmittingSharedLoan(false);
   };
 
   const closeComposer = () => {
@@ -382,28 +384,38 @@ export default function App() {
       return;
     }
 
+    setSharedLoanFormError(null);
+    setIsSubmittingSharedLoan(true);
+
     void (async () => {
-      const borrower = await resolveUserByEmail(sharedLoanDraft.borrowerEmail);
-      if (!borrower) {
-        setSharedLoanFormError("Ese email aun no existe en el sistema. La otra persona debe crear su cuenta primero.");
-        return;
+      try {
+        const borrower = await resolveUserByEmail(sharedLoanDraft.borrowerEmail.trim());
+        if (!borrower) {
+          setSharedLoanFormError("Ese email aun no existe en el sistema. La otra persona debe crear su cuenta primero.");
+          return;
+        }
+
+        const sharedLoan = buildSharedLoanFromDraft(sharedLoanDraft, {
+          lenderUid: userId,
+          lenderEmail: userEmail,
+          borrowerUid: borrower.uid,
+          borrowerEmail: borrower.email
+        });
+
+        const saved = await saveSharedLoan(sharedLoan);
+        if (!saved) {
+          setSharedLoanFormError("No se pudo guardar el prestamo compartido. Revisa el email del otro usuario y tu conexion con Firebase.");
+          return;
+        }
+
+        setActiveView("shared");
+        closeSharedComposer();
+      } catch (error) {
+        console.error("No se pudo crear el prestamo compartido", error);
+        setSharedLoanFormError("No se pudo validar o guardar el prestamo compartido. Prueba otra vez.");
+      } finally {
+        setIsSubmittingSharedLoan(false);
       }
-
-      const sharedLoan = buildSharedLoanFromDraft(sharedLoanDraft, {
-        lenderUid: userId,
-        lenderEmail: userEmail,
-        borrowerUid: borrower.uid,
-        borrowerEmail: borrower.email
-      });
-
-      const saved = await saveSharedLoan(sharedLoan);
-      if (!saved) {
-        setSharedLoanFormError(sharedLoansError ?? "No se pudo guardar el prestamo compartido.");
-        return;
-      }
-
-      setActiveView("shared");
-      closeSharedComposer();
     })();
   };
 
@@ -503,6 +515,7 @@ export default function App() {
     const currentMonth = todayKey().slice(0, 7);
     return entry.paidAt.startsWith(currentMonth);
   }).length;
+  const recurringLoadedCount = activeRecurringItems.length;
 
   if (sessionState !== "authenticated") {
     return (
@@ -598,7 +611,7 @@ export default function App() {
             <MetricCard
               label="Pagado este mes"
               value={formatCurrency(metrics.overview.paidAmount)}
-              detail={`${paidCountThisMonth} pago(s) registrados en el ciclo actual`}
+              detail={`${paidCountThisMonth + recurringLoadedCount} movimiento(s) registrados o cargados en el ciclo actual`}
               tone="mint"
             />
             <MetricCard
@@ -726,7 +739,7 @@ export default function App() {
                   <strong>{formatCurrency(metrics.recurringExpenses.paidAmount)}</strong>
                 </div>
                 <div>
-                  <span>Pendiente del mes</span>
+                  <span>Sin pendiente</span>
                   <strong>{formatCurrency(metrics.recurringExpenses.pendingAmount)}</strong>
                 </div>
                 <div>
@@ -1142,7 +1155,7 @@ export default function App() {
                           <strong>{formatCurrency(summary.paidAmount)}</strong>
                         </div>
                         <div>
-                          <span>Pendiente</span>
+                          <span>{summary.kind === "recurring_expense" ? "Sin pendiente" : "Pendiente"}</span>
                           <strong>{formatCurrency(summary.pendingAmount)}</strong>
                         </div>
                       </div>
@@ -1364,6 +1377,7 @@ export default function App() {
               values={sharedLoanDraft}
               mode="create"
               error={sharedLoanFormError}
+              isSubmitting={isSubmittingSharedLoan}
               currentUserEmail={userEmail}
               onChange={handleSharedLoanDraftChange}
               onSubmit={handleSharedLoanSubmit}

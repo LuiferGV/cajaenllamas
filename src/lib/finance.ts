@@ -60,6 +60,7 @@ const RECURRING_CATEGORY_ALIASES: Record<string, string> = {
   farmam: "Farmacia",
   combustible: "Combustible",
   combus: "Combustible",
+  combud: "Combustible",
   nafta: "Combustible",
   gasoil: "Combustible",
   shell: "Combustible",
@@ -71,13 +72,26 @@ const RECURRING_CATEGORY_ALIASES: Record<string, string> = {
   "gastos-bebe": "Bebe"
 };
 
-export const RECURRENCE_OPTIONS: Array<{ value: Recurrence; label: string; months: number }> = [
-  { value: "monthly", label: "Mensual", months: 1 },
-  { value: "bimonthly", label: "Bimestral", months: 2 },
-  { value: "quarterly", label: "Trimestral", months: 3 },
-  { value: "semiannual", label: "Semestral", months: 6 },
-  { value: "annual", label: "Anual", months: 12 }
+type RecurrenceDefinition = {
+  value: Recurrence;
+  label: string;
+  intervalUnit: "day" | "month";
+  intervalAmount: number;
+  monthlyFactor: number;
+  visibleInPicker?: boolean;
+};
+
+export const RECURRENCE_OPTIONS: RecurrenceDefinition[] = [
+  { value: "daily", label: "Diario", intervalUnit: "day", intervalAmount: 1, monthlyFactor: 365 / 12, visibleInPicker: true },
+  { value: "weekly", label: "Semanal", intervalUnit: "day", intervalAmount: 7, monthlyFactor: 52 / 12, visibleInPicker: true },
+  { value: "monthly", label: "Mensual", intervalUnit: "month", intervalAmount: 1, monthlyFactor: 1, visibleInPicker: true },
+  { value: "bimonthly", label: "Bimestral", intervalUnit: "month", intervalAmount: 2, monthlyFactor: 1 / 2 },
+  { value: "quarterly", label: "Trimestral", intervalUnit: "month", intervalAmount: 3, monthlyFactor: 1 / 3 },
+  { value: "semiannual", label: "Semestral", intervalUnit: "month", intervalAmount: 6, monthlyFactor: 1 / 6 },
+  { value: "annual", label: "Anual", intervalUnit: "month", intervalAmount: 12, monthlyFactor: 1 / 12 }
 ];
+
+export const RECURRENCE_PICKER_OPTIONS = RECURRENCE_OPTIONS.filter((option) => option.visibleInPicker);
 
 export const KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
   { value: "loan", label: "Prestamo" },
@@ -489,8 +503,12 @@ export function validateDraft(draft: FinanceDraft) {
 }
 
 export function shiftCycleDate(currentDate: string, recurrence: Recurrence, cyclesOffset: number) {
-  const monthsOffset = recurrenceMonths(recurrence) * cyclesOffset;
-  return formatDateKey(addMonthsKeepingAnchor(parseDateKey(currentDate), monthsOffset));
+  const definition = getRecurrenceDefinition(recurrence);
+  if (definition.intervalUnit === "day") {
+    return formatDateKey(addDays(parseDateKey(currentDate), definition.intervalAmount * cyclesOffset));
+  }
+
+  return formatDateKey(addMonthsKeepingAnchor(parseDateKey(currentDate), definition.intervalAmount * cyclesOffset));
 }
 
 export function parseDateKey(value: string) {
@@ -505,8 +523,12 @@ export function formatDateKey(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function recurrenceMonths(recurrence: Recurrence) {
-  return RECURRENCE_OPTIONS.find((option) => option.value === recurrence)?.months ?? 1;
+function getRecurrenceDefinition(recurrence: Recurrence) {
+  return RECURRENCE_OPTIONS.find((option) => option.value === recurrence) ?? RECURRENCE_OPTIONS[2];
+}
+
+function recurrenceMonthlyFactor(recurrence: Recurrence) {
+  return getRecurrenceDefinition(recurrence).monthlyFactor;
 }
 
 function addMonthsKeepingAnchor(input: Date, monthsToAdd: number) {
@@ -533,13 +555,24 @@ function addMonthsKeepingAnchor(input: Date, monthsToAdd: number) {
   );
 }
 
+function addDays(input: Date, daysToAdd: number) {
+  const nextDate = new Date(input);
+  nextDate.setDate(nextDate.getDate() + daysToAdd);
+  nextDate.setHours(12, 0, 0, 0);
+  return nextDate;
+}
+
 export function getNextDueDate(currentDueDate: string, recurrence: Recurrence, paidAt: string) {
   const paidDate = parseDateKey(paidAt);
   let candidate = parseDateKey(currentDueDate);
+  const definition = getRecurrenceDefinition(recurrence);
 
   // Preserve the original billing day and keep advancing until the next due date is truly after the payment date.
   do {
-    candidate = addMonthsKeepingAnchor(candidate, recurrenceMonths(recurrence));
+    candidate =
+      definition.intervalUnit === "day"
+        ? addDays(candidate, definition.intervalAmount)
+        : addMonthsKeepingAnchor(candidate, definition.intervalAmount);
   } while (candidate.getTime() <= paidDate.getTime());
 
   return formatDateKey(candidate);
@@ -829,19 +862,25 @@ function getActiveItems(items: FinanceItem[]) {
 }
 
 export function getMonthlyCommitment(items: FinanceItem[]) {
-  return getActiveItems(items).reduce((sum, item) => sum + item.amount / recurrenceMonths(item.recurrence), 0);
+  return getActiveItems(items).reduce((sum, item) => sum + item.amount * recurrenceMonthlyFactor(item.recurrence), 0);
 }
 
 export function getPendingThisMonth(items: FinanceItem[], baseDate = new Date()) {
   const { end } = getCurrentMonthRange(baseDate);
   return getActiveItems(items).reduce((sum, item) => {
     if (item.kind === "recurring_expense") {
-      return item.lastPaidAt && isDateInCurrentMonth(item.lastPaidAt, baseDate) ? sum : sum + item.amount;
+      return sum;
     }
 
     const dueDate = getEffectiveDueDate(item);
     return dueDate !== null && dueDate <= end ? sum + item.amount : sum;
   }, 0);
+}
+
+function getRecurringSettledAmount(items: FinanceItem[]) {
+  return getActiveItems(items)
+    .filter((item) => item.kind === "recurring_expense")
+    .reduce((sum, item) => sum + item.amount, 0);
 }
 
 export function getPaidThisMonth(history: PaymentHistoryEntry[], baseDate = new Date()) {
@@ -865,6 +904,16 @@ function getSegmentMetrics(state: FinanceState, kind: EntryKind, baseDate = new 
   const history = state.history.filter((entry) => entry.kind === kind);
   const activeItems = getActiveItems(items);
 
+  if (kind === "recurring_expense") {
+    return {
+      paidAmount: getRecurringSettledAmount(activeItems),
+      pendingAmount: 0,
+      monthlyBase: getMonthlyCommitment(activeItems),
+      activeCount: activeItems.length,
+      overdueCount: 0
+    };
+  }
+
   return {
     paidAmount: getPaidThisMonth(history, baseDate),
     pendingAmount: getPendingThisMonth(activeItems, baseDate),
@@ -881,10 +930,15 @@ export function getDashboardMetrics(state: FinanceState, baseDate = new Date()):
   const loanItems = state.items.filter((item) => item.kind === "loan");
   const activeLoanItems = getActiveItems(loanItems);
   const loanMetricsBase = getSegmentMetrics(state, "loan", baseDate);
+  const recurringSettledAmount = getRecurringSettledAmount(state.items);
 
   return {
     overview: {
-      paidAmount: getPaidThisMonth(state.history, baseDate),
+      paidAmount:
+        getPaidThisMonth(
+          state.history.filter((entry) => entry.kind !== "recurring_expense"),
+          baseDate
+        ) + recurringSettledAmount,
       pendingAmount: getPendingThisMonth(state.items, baseDate),
       monthlyBase: getMonthlyCommitment(state.items),
       activeCount: getActiveItems(state.items).length,
@@ -953,12 +1007,14 @@ export function getDashboardCategorySummaries(state: FinanceState, baseDate = ne
     const descriptor = getDashboardCategoryDescriptor(item);
     const existing = summaryMap.get(descriptor.key);
     const dueDate = getEffectiveDueDate(item);
-    const pendingAmount = getPendingThisMonth([item], baseDate);
+    const pendingAmount = item.kind === "recurring_expense" ? 0 : getPendingThisMonth([item], baseDate);
+    const paidAmount = item.kind === "recurring_expense" ? item.amount : 0;
 
     if (existing) {
       existing.activeCount += 1;
+      existing.paidAmount += paidAmount;
       existing.pendingAmount += pendingAmount;
-      existing.monthlyBase += item.amount / recurrenceMonths(item.recurrence);
+      existing.monthlyBase += item.amount * recurrenceMonthlyFactor(item.recurrence);
       existing.nextDueDate =
         existing.nextDueDate === null
           ? dueDate
@@ -981,9 +1037,9 @@ export function getDashboardCategorySummaries(state: FinanceState, baseDate = ne
       label: descriptor.label,
       kind: descriptor.kind,
       activeCount: 1,
-      paidAmount: 0,
+      paidAmount,
       pendingAmount,
-      monthlyBase: item.amount / recurrenceMonths(item.recurrence),
+      monthlyBase: item.amount * recurrenceMonthlyFactor(item.recurrence),
       nextDueDate: dueDate,
       entities: item.entityName.trim() ? [item.entityName] : [],
       itemTitles: [getDisplayTitle(item)]
@@ -992,6 +1048,7 @@ export function getDashboardCategorySummaries(state: FinanceState, baseDate = ne
 
   for (const payment of state.history) {
     if (!payment.paidAt.startsWith(currentMonthPrefix)) continue;
+    if (payment.kind === "recurring_expense") continue;
 
     const descriptor = getDashboardCategoryDescriptor(payment);
     const existing = summaryMap.get(descriptor.key);
