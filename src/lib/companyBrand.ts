@@ -32,6 +32,7 @@ const LOGO_ALIASES: Record<string, string[]> = {
   itau: ["itau", "itaú", "banco itau", "financiera itau"],
   personal: ["personal", "personal flow", "flow"],
   petrobras: ["petrobras"],
+  prosegur: ["prosegur", "proseguro", "alarma", "servicio de alarma"],
   shell: ["shell", "combus", "combud", "combustible", "nafta"],
   sps: ["sps"],
   tigo: ["tigo", "tigo hogar"],
