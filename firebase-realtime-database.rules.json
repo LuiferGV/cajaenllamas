@@ -14,7 +14,7 @@
       ".indexOn": ["lenderEmail", "borrowerEmail"],
       ".read": "auth != null && ((query.orderByChild == 'lenderEmail' && query.equalTo == auth.token.email) || (query.orderByChild == 'borrowerEmail' && query.equalTo == auth.token.email))",
       "$loanId": {
-        ".write": "auth != null && (((!data.exists()) && newData.child('lenderEmail').val() === auth.token.email) || data.child('lenderEmail').val() === auth.token.email)"
+        ".write": "auth != null && (((!data.exists()) && (newData.child('lenderEmail').val() === auth.token.email || newData.child('borrowerEmail').val() === auth.token.email)) || data.child('lenderEmail').val() === auth.token.email || data.child('borrowerEmail').val() === auth.token.email)"
       }
     }
   }

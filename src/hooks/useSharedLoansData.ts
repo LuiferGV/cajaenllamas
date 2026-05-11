@@ -47,9 +47,9 @@ export function useSharedLoansData(enabled: boolean, userEmail: string | null): 
         setSharedLoansError(null);
       },
       (error) => {
-        console.error("No se pudieron cargar los prestamos compartidos", error);
+        console.error("No se pudieron cargar los gastos compartidos", error);
         setSharedLoansState("error");
-        setSharedLoansError("No se pudieron cargar los prestamos compartidos.");
+        setSharedLoansError("No se pudieron cargar los gastos compartidos.");
       }
     );
 
@@ -74,10 +74,10 @@ export function useSharedLoansData(enabled: boolean, userEmail: string | null): 
       setSharedLoansState("connected");
       return true;
     } catch (error) {
-      console.error("No se pudo guardar el prestamo compartido", error);
+      console.error("No se pudo guardar el gasto compartido", error);
       setSharedLoans(previousLoans);
       setSharedLoansState("error");
-      setSharedLoansError("No se pudo guardar el prestamo compartido.");
+      setSharedLoansError("No se pudo guardar el gasto compartido.");
       return false;
     }
   };
@@ -99,10 +99,10 @@ export function useSharedLoansData(enabled: boolean, userEmail: string | null): 
       setSharedLoansState("connected");
       return true;
     } catch (error) {
-      console.error("No se pudo borrar el prestamo compartido", error);
+      console.error("No se pudo borrar el gasto compartido", error);
       setSharedLoans(previousLoans);
       setSharedLoansState("error");
-      setSharedLoansError("No se pudo borrar el prestamo compartido.");
+      setSharedLoansError("No se pudo borrar el gasto compartido.");
       return false;
     }
   };

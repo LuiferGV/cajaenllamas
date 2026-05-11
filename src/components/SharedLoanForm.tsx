@@ -1,10 +1,10 @@
 import type { FormEvent, ReactNode } from "react";
-import { parseAmount } from "../lib/finance";
-import type { SharedLoanDraft } from "../types";
+import { formatCurrency, parseAmount } from "../lib/finance";
+import type { SharedLoanDraft, SharedSplitDraftMode } from "../types";
 
 interface SharedLoanFormProps {
   values: SharedLoanDraft;
-  mode: "create";
+  mode: "create" | "edit";
   error: string | null;
   isSubmitting: boolean;
   currentUserEmail: string | null;
@@ -15,8 +15,36 @@ interface SharedLoanFormProps {
   titleId?: string;
 }
 
+const SPLIT_OPTIONS: Array<{
+  value: SharedSplitDraftMode;
+  title: string;
+  helper: string;
+}> = [
+  {
+    value: "current_paid_equal",
+    title: "Tu pagaste, dividido a partes iguales",
+    helper: "La otra persona te devuelve la mitad."
+  },
+  {
+    value: "current_paid_full",
+    title: "Se te debe la cantidad total",
+    helper: "Pagaste por completo y la otra persona te debe todo."
+  },
+  {
+    value: "counterparty_paid_equal",
+    title: "La otra persona pago, dividido a partes iguales",
+    helper: "Tu le devuelves la mitad."
+  },
+  {
+    value: "counterparty_paid_full",
+    title: "A la otra persona se le debe la cantidad total",
+    helper: "La otra persona pago por completo y tu le debes todo."
+  }
+];
+
 export function SharedLoanForm({
   values,
+  mode,
   error,
   isSubmitting,
   currentUserEmail,
@@ -31,103 +59,109 @@ export function SharedLoanForm({
     onSubmit();
   };
 
-  const installmentsTotal = parseAmount(values.installmentsTotal);
-  const principalAmount = parseAmount(values.principalAmount);
-  const installmentAmount = parseAmount(values.amount);
-  const estimatedAfterCurrent =
-    principalAmount > 0 && installmentAmount > 0 ? Math.max(principalAmount - installmentAmount, 0) : 0;
+  const totalAmount = parseAmount(values.totalAmount);
+  const settlementAmount =
+    values.splitMode === "current_paid_full" || values.splitMode === "counterparty_paid_full"
+      ? totalAmount
+      : Math.round(totalAmount / 2);
+  const roleLabel =
+    values.splitMode === "current_paid_equal" || values.splitMode === "current_paid_full" ? "Te deben" : "Tu debes";
+  const counterpartyLabel = values.counterpartyEmail.trim() || "el otro usuario";
 
   return (
     <form className="composer-card composer-card--loan" onSubmit={handleSubmit} noValidate>
       <div className="section-heading">
         <div>
           <p className="eyebrow">Gasto compartido</p>
-          <h2 id={titleId}>Nuevo prestamo entre usuarios</h2>
+          <h2 id={titleId}>{mode === "create" ? "Nuevo gasto entre usuarios" : "Editar gasto compartido"}</h2>
         </div>
         <div className="composer-card__header-actions">
-          <span className="status-pill status-pill--kind status-pill--kind-loan">Solo edita el acreedor</span>
+          <span className="status-pill status-pill--kind status-pill--kind-loan">Ambos pueden editar</span>
           {headerAction}
         </div>
       </div>
 
       <div className="form-helper form-helper--loan">
-        Solo tu, como acreedor, podras registrar cuotas o refuerzos. La otra persona vera este prestamo en modo lectura.
+        Registra quien pago, como se dividio el gasto y la app calcula automaticamente cuanto queda entre ambos.
       </div>
 
       <div className="field-grid">
         <label className="field field--full field--loan">
-          <span>Tu cuenta acreedora</span>
+          <span>Tu usuario</span>
           <input type="email" value={currentUserEmail ?? ""} readOnly />
         </label>
 
         <label className="field field--full field--loan">
-          <span>Email de quien te debe</span>
+          <span>Email del otro usuario</span>
           <input
             type="email"
-            value={values.borrowerEmail}
-            onChange={(event) => onChange("borrowerEmail", event.target.value)}
+            value={values.counterpartyEmail}
+            onChange={(event) => onChange("counterpartyEmail", event.target.value)}
             placeholder="Email del usuario"
             disabled={isSubmitting}
           />
         </label>
 
         <label className="field field--full field--loan">
-          <span>Nombre o motivo del prestamo</span>
+          <span>Nombre o motivo del gasto</span>
           <input
             type="text"
             value={values.title}
             onChange={(event) => onChange("title", event.target.value)}
-            placeholder="Prestamo efectivo, viaje, moto, adelanto"
+            placeholder="Super, alquiler temporal, cena, farmacia, viaje"
             disabled={isSubmitting}
           />
         </label>
 
-        <label className="field field--loan">
-          <span>Monto total prestado</span>
+        <label className="field field--full field--loan">
+          <span>Monto total del gasto</span>
           <input
             type="text"
             inputMode="numeric"
-            value={values.principalAmount}
-            onChange={(event) => onChange("principalAmount", event.target.value)}
-            placeholder="5000000"
+            value={values.totalAmount}
+            onChange={(event) => onChange("totalAmount", event.target.value)}
+            placeholder="500000"
             disabled={isSubmitting}
           />
         </label>
 
-        <label className="field field--loan">
-          <span>Monto de cada cuota</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={values.amount}
-            onChange={(event) => onChange("amount", event.target.value)}
-            placeholder="1000000"
-            disabled={isSubmitting}
-          />
-        </label>
+        <div className="field field--full">
+          <span className="field__label">Como se dividio este gasto</span>
+          <div className="loan-mode-picker" role="group" aria-label="Como se dividio el gasto">
+            {SPLIT_OPTIONS.map((option) => {
+              const isActive = values.splitMode === option.value;
+              const resolvedTitle =
+                option.value === "counterparty_paid_equal"
+                  ? `${counterpartyLabel} pago, dividido a partes iguales`
+                  : option.value === "counterparty_paid_full"
+                    ? `A ${counterpartyLabel} se le debe la cantidad total`
+                    : option.title;
 
-        <label className="field field--loan">
-          <span>Cuotas pactadas</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={values.installmentsTotal}
-            onChange={(event) => onChange("installmentsTotal", event.target.value)}
-            placeholder="5"
-            disabled={isSubmitting}
-          />
-        </label>
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`loan-mode-option ${isActive ? "is-active" : ""}`}
+                  aria-pressed={isActive}
+                  onClick={() => onChange("splitMode", option.value)}
+                >
+                  <span className="loan-mode-option__label">{resolvedTitle}</span>
+                  <span className="loan-mode-option__hint">{option.helper}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-        <label className="field field--loan">
-          <span>Primera cuota vence</span>
-          <input type="date" value={values.dueDate} onChange={(event) => onChange("dueDate", event.target.value)} disabled={isSubmitting} />
-        </label>
-
-        {principalAmount > 0 && installmentAmount > 0 ? (
+        {totalAmount > 0 ? (
           <div className="field field--full">
             <div className="loan-preview">
-              <strong>{installmentsTotal > 0 ? `${installmentsTotal} cuota(s) previstas` : "Prestamo compartido"}</strong>
-              <span>Despues de cobrar la primera cuota quedarian {estimatedAfterCurrent.toLocaleString("es-PY")} Gs. de saldo.</span>
+              <strong>
+                {roleLabel} {formatCurrency(settlementAmount)}
+              </strong>
+              <span>
+                El gasto fue de {formatCurrency(totalAmount)} y queda ajustado automaticamente para {counterpartyLabel}.
+              </span>
             </div>
           </div>
         ) : null}
@@ -138,7 +172,7 @@ export function SharedLoanForm({
             rows={4}
             value={values.notes}
             onChange={(event) => onChange("notes", event.target.value)}
-            placeholder="Ej.: solo yo registro pagos, acuerdo verbal, observaciones o recordatorios."
+            placeholder="Ej.: compra del finde, gasto de farmacia, acordado por WhatsApp, detalle util."
             disabled={isSubmitting}
           />
         </label>
@@ -148,10 +182,10 @@ export function SharedLoanForm({
 
       <div className="form-actions">
         <button type="submit" className="primary-button" disabled={isSubmitting}>
-          {isSubmitting ? "Guardando..." : "Guardar prestamo compartido"}
+          {isSubmitting ? "Guardando..." : mode === "create" ? "Guardar gasto compartido" : "Guardar cambios"}
         </button>
         <button type="button" className="ghost-button" onClick={onReset} disabled={isSubmitting}>
-          Cancelar
+          {mode === "create" ? "Cancelar" : "Cerrar"}
         </button>
       </div>
     </form>

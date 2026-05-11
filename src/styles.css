@@ -1705,6 +1705,15 @@ select {
   letter-spacing: -0.03em;
 }
 
+.shared-loan-row__summary {
+  margin-top: 8px;
+}
+
+.shared-loan-row__log {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
 .summary-expense-card__note {
   margin: 0;
   color: var(--text-main);

@@ -157,6 +157,16 @@ export function formatDate(value: string) {
   }).format(parseDateKey(value));
 }
 
+export function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("es-PY", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
 export function formatMonthLabel(value: string) {
   return new Intl.DateTimeFormat("es-PY", {
     month: "long",

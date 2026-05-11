@@ -62,23 +62,22 @@ export interface FinanceState {
   history: PaymentHistoryEntry[];
 }
 
-export interface SharedLoanPaymentEntry {
+export type SharedSplitType = "equal_split" | "full_amount";
+
+export type SharedSplitDraftMode =
+  | "current_paid_equal"
+  | "current_paid_full"
+  | "counterparty_paid_equal"
+  | "counterparty_paid_full";
+
+export interface SharedLoanActivityEntry {
   id: string;
   loanId: string;
-  title: string;
-  lenderUid: string;
-  lenderEmail: string;
-  borrowerUid: string;
-  borrowerEmail: string;
-  amount: number;
-  paidAt: string;
-  coveredDueDate: string | null;
-  nextDueDate: string | null;
-  installmentNumber: number | null;
-  installmentsTotal: number | null;
-  paymentType: Extract<PaymentType, "loan_installment" | "loan_extra_payment">;
-  recordedByUid: string;
-  recordedByEmail: string;
+  action: "created" | "updated" | "settled" | "reopened";
+  summary: string;
+  changedByUid: string;
+  changedByEmail: string;
+  changedAt: string;
 }
 
 export interface SharedLoan {
@@ -88,28 +87,26 @@ export interface SharedLoan {
   lenderEmail: string;
   borrowerUid: string;
   borrowerEmail: string;
-  amount: number;
-  principalAmount: number;
-  principalRemaining: number;
-  dueDate: string | null;
+  splitType: SharedSplitType;
+  totalAmount: number;
+  settlementAmount: number;
   notes: string;
-  recurrence: "monthly";
   createdAt: string;
   updatedAt: string;
-  lastPaidAt: string | null;
-  installmentsTotal: number;
-  installmentsPaid: number;
+  createdByUid: string;
+  createdByEmail: string;
+  lastEditedByUid: string;
+  lastEditedByEmail: string;
+  lastEditedAt: string;
   isCompleted: boolean;
-  history: SharedLoanPaymentEntry[];
+  history: SharedLoanActivityEntry[];
 }
 
 export interface SharedLoanDraft {
-  borrowerEmail: string;
+  counterpartyEmail: string;
   title: string;
-  amount: string;
-  principalAmount: string;
-  installmentsTotal: string;
-  dueDate: string;
+  totalAmount: string;
+  splitMode: SharedSplitDraftMode;
   notes: string;
 }
 
