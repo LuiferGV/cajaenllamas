@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
 import { CompanyLogo } from "./CompanyLogo";
 import { formatCurrency, formatDateTime } from "../lib/finance";
 import {
   getSharedLoanCounterpartyEmail,
+  getSharedLoanOriginalSettlementAmount,
+  getSharedLoanPaidAmount,
   getSharedLoanPayerLabel,
   getSharedLoanRoleLabel,
   getSharedLoanSettlementAmount,
@@ -15,6 +18,7 @@ interface SharedLoanRowProps {
   currentUserEmail: string | null;
   confirmingDelete: boolean;
   onEdit: () => void;
+  onRegisterPartialPayment: (nextAmount: string) => void;
   onToggleSettled: () => void;
   onAskDelete: () => void;
   onConfirmDelete: () => void;
@@ -26,6 +30,7 @@ export function SharedLoanRow({
   currentUserEmail,
   confirmingDelete,
   onEdit,
+  onRegisterPartialPayment,
   onToggleSettled,
   onAskDelete,
   onConfirmDelete,
@@ -36,7 +41,17 @@ export function SharedLoanRow({
   const splitLabel = getSharedLoanSplitLabel(loan);
   const summary = getSharedLoanSummary(loan, currentUserEmail);
   const payerLabel = getSharedLoanPayerLabel(loan, currentUserEmail);
-  const settlementAmount = getSharedLoanSettlementAmount(loan);
+  const originalSettlementAmount = getSharedLoanOriginalSettlementAmount(loan);
+  const paidAmount = getSharedLoanPaidAmount(loan);
+  const remainingAmount = getSharedLoanSettlementAmount(loan);
+  const [showPartialPaymentEditor, setShowPartialPaymentEditor] = useState(false);
+  const [partialPaymentDraft, setPartialPaymentDraft] = useState("");
+  const canSavePartialPayment = partialPaymentDraft.replace(/[^\d]/g, "").length > 0;
+
+  useEffect(() => {
+    setShowPartialPaymentEditor(false);
+    setPartialPaymentDraft("");
+  }, [loan.id, loan.lastEditedAt]);
 
   return (
     <article className="entry-card entry-card--loan shared-loan-row">
@@ -61,27 +76,27 @@ export function SharedLoanRow({
           </div>
 
           <div className="entry-card__amounts">
-            <strong>{formatCurrency(settlementAmount)}</strong>
-            <span>Gasto total {formatCurrency(loan.totalAmount)}</span>
+            <strong>{formatCurrency(remainingAmount)}</strong>
+            <span>Saldo pendiente actual</span>
           </div>
         </div>
 
         <div className="shared-loan-row__stats">
           <div>
-            <span>Ajuste entre ustedes</span>
-            <strong>{formatCurrency(settlementAmount)}</strong>
+            <span>Ajuste original</span>
+            <strong>{formatCurrency(originalSettlementAmount)}</strong>
+          </div>
+          <div>
+            <span>Abonado</span>
+            <strong>{formatCurrency(paidAmount)}</strong>
+          </div>
+          <div>
+            <span>Restante</span>
+            <strong>{formatCurrency(remainingAmount)}</strong>
           </div>
           <div>
             <span>Quien pago</span>
             <strong>{payerLabel}</strong>
-          </div>
-          <div>
-            <span>Division</span>
-            <strong>{splitLabel}</strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong>{loan.isCompleted ? "Saldado" : "Pendiente entre ustedes"}</strong>
           </div>
         </div>
 
@@ -92,27 +107,76 @@ export function SharedLoanRow({
           </span>
         </div>
 
-        <div className="entry-card__actions entry-card__actions--shared">
-          <button type="button" className="outline-button" onClick={onEdit}>
-            Editar
-          </button>
-          <button type="button" className="primary-button" onClick={onToggleSettled}>
-            {loan.isCompleted ? "Reabrir" : "Marcar saldado"}
-          </button>
-          {confirmingDelete ? (
-            <>
-              <button type="button" className="danger-button" onClick={onConfirmDelete}>
-                Confirmar borrar
-              </button>
-              <button type="button" className="ghost-button" onClick={onCancelDelete}>
-                Cancelar
-              </button>
-            </>
-          ) : (
-            <button type="button" className="ghost-button ghost-button--danger" onClick={onAskDelete}>
-              Eliminar
+        <div className="shared-payment-box">
+          <div className="shared-payment-box__summary">
+            <span>Puedes registrar un abono menor si no se cancelo todo de una vez.</span>
+            <span>El sistema descuenta ese monto y deja visible lo que aun falta pagar.</span>
+          </div>
+
+          <div className="entry-card__actions entry-card__actions--shared">
+            <button
+              type="button"
+              className="outline-button"
+              onClick={() => {
+                setShowPartialPaymentEditor((current) => !current);
+                if (showPartialPaymentEditor) {
+                  setPartialPaymentDraft("");
+                }
+              }}
+            >
+              {showPartialPaymentEditor ? "Cancelar abono" : "Registrar abono"}
             </button>
-          )}
+            <button type="button" className="primary-button" onClick={onToggleSettled}>
+              Saldar todo
+            </button>
+            <button type="button" className="ghost-button" onClick={onEdit}>
+              Editar
+            </button>
+          </div>
+
+          {showPartialPaymentEditor ? (
+            <div className="inline-editor inline-editor--shared-payment">
+              <label className="inline-editor__field">
+                <span>Monto del abono parcial</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={partialPaymentDraft}
+                  onChange={(event) => setPartialPaymentDraft(event.target.value)}
+                  placeholder="250000"
+                />
+              </label>
+              <button
+                type="button"
+                className="outline-button"
+                disabled={!canSavePartialPayment}
+                onClick={() => {
+                  onRegisterPartialPayment(partialPaymentDraft);
+                  setPartialPaymentDraft("");
+                  setShowPartialPaymentEditor(false);
+                }}
+              >
+                Guardar abono
+              </button>
+            </div>
+          ) : null}
+
+          <div className="entry-card__actions entry-card__actions--shared">
+            {confirmingDelete ? (
+              <>
+                <button type="button" className="danger-button" onClick={onConfirmDelete}>
+                  Confirmar borrar
+                </button>
+                <button type="button" className="ghost-button" onClick={onCancelDelete}>
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <button type="button" className="ghost-button ghost-button--danger" onClick={onAskDelete}>
+                Eliminar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </article>

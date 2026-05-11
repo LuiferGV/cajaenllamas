@@ -73,7 +73,7 @@ export type SharedSplitDraftMode =
 export interface SharedLoanActivityEntry {
   id: string;
   loanId: string;
-  action: "created" | "updated" | "settled" | "reopened";
+  action: "created" | "updated" | "partial_payment" | "settled" | "reopened";
   summary: string;
   changedByUid: string;
   changedByEmail: string;
@@ -89,6 +89,7 @@ export interface SharedLoan {
   borrowerEmail: string;
   splitType: SharedSplitType;
   totalAmount: number;
+  originalSettlementAmount: number;
   settlementAmount: number;
   notes: string;
   createdAt: string;

@@ -52,6 +52,7 @@ import {
   getSharedLoanRoleLabel,
   getSharedLoanSettlementAmount,
   isSharedLoanEditable,
+  registerSharedLoanPartialPayment,
   toggleSharedLoanCompleted,
   updateSharedLoanFromDraft,
   validateSharedLoanDraft
@@ -453,6 +454,16 @@ export default function App() {
     if (!isSharedLoanEditable(loan, userEmail)) return;
 
     const nextLoan = toggleSharedLoanCompleted(loan, { userId, userEmail });
+    void saveSharedLoan(nextLoan);
+  };
+
+  const handleSharedLoanPartialPayment = (loanId: string, nextAmount: string) => {
+    const loan = sharedLoans.find((entry) => entry.id === loanId);
+    const parsedAmount = parseAmount(nextAmount);
+    if (!loan || !userId || !userEmail || parsedAmount <= 0) return;
+    if (!isSharedLoanEditable(loan, userEmail)) return;
+
+    const nextLoan = registerSharedLoanPartialPayment(loan, parsedAmount, { userId, userEmail });
     void saveSharedLoan(nextLoan);
   };
 
@@ -1274,6 +1285,7 @@ export default function App() {
                       currentUserEmail={userEmail}
                       confirmingDelete={pendingSharedDeleteId === loan.id}
                       onEdit={() => openSharedEditor(loan)}
+                      onRegisterPartialPayment={(nextAmount) => handleSharedLoanPartialPayment(loan.id, nextAmount)}
                       onToggleSettled={() => handleSharedLoanToggleSettled(loan.id)}
                       onAskDelete={() => setPendingSharedDeleteId(loan.id)}
                       onConfirmDelete={() => handleSharedLoanDelete(loan.id)}
@@ -1313,6 +1325,7 @@ export default function App() {
                       currentUserEmail={userEmail}
                       confirmingDelete={pendingSharedDeleteId === loan.id}
                       onEdit={() => openSharedEditor(loan)}
+                      onRegisterPartialPayment={(nextAmount) => handleSharedLoanPartialPayment(loan.id, nextAmount)}
                       onToggleSettled={() => handleSharedLoanToggleSettled(loan.id)}
                       onAskDelete={() => setPendingSharedDeleteId(loan.id)}
                       onConfirmDelete={() => handleSharedLoanDelete(loan.id)}
@@ -1359,7 +1372,15 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <strong>{payment.action === "settled" ? "Saldado" : payment.action === "reopened" ? "Reabierto" : "Actualizado"}</strong>
+                        <strong>
+                          {payment.action === "partial_payment"
+                            ? "Abono"
+                            : payment.action === "settled"
+                              ? "Saldado"
+                              : payment.action === "reopened"
+                                ? "Reabierto"
+                                : "Actualizado"}
+                        </strong>
                         <p>{formatDateTime(payment.changedAt)}</p>
                       </div>
                     </article>

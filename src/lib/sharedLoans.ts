@@ -1,4 +1,4 @@
-import { createId, formatDateKey, parseAmount } from "./finance";
+import { createId, formatCurrency, parseAmount } from "./finance";
 import type {
   SharedLoan,
   SharedLoanActivityEntry,
@@ -32,6 +32,14 @@ function isCurrentUserPayer(mode: SharedSplitDraftMode) {
 
 function getSettlementAmount(totalAmount: number, splitType: SharedSplitType) {
   return splitType === "full_amount" ? totalAmount : Math.round(totalAmount / 2);
+}
+
+function clampAmount(value: number, min = 0, max = Number.MAX_SAFE_INTEGER) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getPaidAmountFromLoan(loan: Pick<SharedLoan, "originalSettlementAmount" | "settlementAmount">) {
+  return clampAmount(loan.originalSettlementAmount - loan.settlementAmount, 0, loan.originalSettlementAmount);
 }
 
 function buildActivityEntry(
@@ -103,6 +111,7 @@ export function buildSharedLoanFromDraft(draft: SharedLoanDraft, actor: SharedAc
     borrowerEmail: participantEmail,
     splitType,
     totalAmount,
+    originalSettlementAmount: getSettlementAmount(totalAmount, splitType),
     settlementAmount: getSettlementAmount(totalAmount, splitType),
     notes: draft.notes.trim(),
     createdAt: timestamp,
@@ -168,7 +177,11 @@ export function normalizeSharedLoan(rawValue: Partial<SharedLoan> & { id?: strin
               id: activity.id ?? createId("shared-activity"),
               loanId: activity.loanId ?? id,
               action:
-                activity.action === "created" || activity.action === "updated" || activity.action === "settled" || activity.action === "reopened"
+                activity.action === "created" ||
+                activity.action === "updated" ||
+                activity.action === "partial_payment" ||
+                activity.action === "settled" ||
+                activity.action === "reopened"
                   ? activity.action
                   : "updated",
               summary: typeof activity.summary === "string" && activity.summary.trim() ? activity.summary.trim() : "Actualizacion compartida",
@@ -189,6 +202,8 @@ export function normalizeSharedLoan(rawValue: Partial<SharedLoan> & { id?: strin
       borrowerEmail: typeof rawValue.borrowerEmail === "string" ? normalizeEmail(rawValue.borrowerEmail) : "",
       splitType: rawValue.splitType === "full_amount" ? "full_amount" : "equal_split",
       totalAmount: rawValue.totalAmount,
+      originalSettlementAmount:
+        typeof rawValue.originalSettlementAmount === "number" ? rawValue.originalSettlementAmount : rawValue.settlementAmount,
       settlementAmount: rawValue.settlementAmount,
       notes: typeof rawValue.notes === "string" ? rawValue.notes : "",
       createdAt: typeof rawValue.createdAt === "string" ? rawValue.createdAt : fallbackUpdatedAt,
@@ -255,6 +270,7 @@ export function normalizeSharedLoan(rawValue: Partial<SharedLoan> & { id?: strin
     borrowerEmail: typeof rawValue.borrowerEmail === "string" ? normalizeEmail(rawValue.borrowerEmail) : "",
     splitType: "full_amount",
     totalAmount: legacyTotalAmount,
+    originalSettlementAmount: legacyTotalAmount,
     settlementAmount: legacyTotalAmount,
     notes: typeof rawValue.notes === "string" ? rawValue.notes : "",
     createdAt: typeof rawValue.createdAt === "string" ? rawValue.createdAt : fallbackUpdatedAt,
@@ -339,6 +355,13 @@ export function updateSharedLoanFromDraft(
   const payerEmail = isCurrentUserPayer(draft.splitMode) ? actorEmail : counterpartyEmail;
   const participantEmail = payerEmail === actorEmail ? counterpartyEmail : actorEmail;
   const timestamp = nowTimestamp();
+  const nextOriginalSettlementAmount = getSettlementAmount(totalAmount, splitType);
+  const paidAmount = getPaidAmountFromLoan(loan);
+  const nextRemainingSettlementAmount = clampAmount(
+    nextOriginalSettlementAmount - paidAmount,
+    0,
+    nextOriginalSettlementAmount
+  );
 
   const updatedLoan: SharedLoan = {
     ...loan,
@@ -347,12 +370,14 @@ export function updateSharedLoanFromDraft(
     borrowerEmail: participantEmail,
     splitType,
     totalAmount,
-    settlementAmount: getSettlementAmount(totalAmount, splitType),
+    originalSettlementAmount: nextOriginalSettlementAmount,
+    settlementAmount: nextRemainingSettlementAmount,
     notes: draft.notes.trim(),
     updatedAt: timestamp,
     lastEditedByUid: actor.userId,
     lastEditedByEmail: actorEmail,
-    lastEditedAt: timestamp
+    lastEditedAt: timestamp,
+    isCompleted: nextRemainingSettlementAmount <= 0
   };
 
   return {
@@ -367,9 +392,11 @@ export function updateSharedLoanFromDraft(
 export function toggleSharedLoanCompleted(loan: SharedLoan, actor: SharedActor) {
   const nextCompleted = !loan.isCompleted;
   const timestamp = nowTimestamp();
+  const nextSettlementAmount = nextCompleted ? 0 : loan.originalSettlementAmount;
 
   return {
     ...loan,
+    settlementAmount: nextSettlementAmount,
     isCompleted: nextCompleted,
     updatedAt: timestamp,
     lastEditedByUid: actor.userId,
@@ -380,13 +407,48 @@ export function toggleSharedLoanCompleted(loan: SharedLoan, actor: SharedActor) 
         loan.id,
         actor,
         nextCompleted ? "settled" : "reopened",
-        nextCompleted ? "Marco el gasto como saldado." : "Reabrio el gasto compartido."
+        nextCompleted ? "Marco el gasto como saldado." : "Reabrio el gasto compartido desde el monto original."
       ),
       ...loan.history
     ].sort((left, right) => right.changedAt.localeCompare(left.changedAt))
   } satisfies SharedLoan;
 }
 
+export function registerSharedLoanPartialPayment(loan: SharedLoan, amount: number, actor: SharedActor) {
+  const normalizedAmount = clampAmount(Math.round(amount), 0, loan.settlementAmount);
+  if (normalizedAmount <= 0) return loan;
+
+  const nextRemainingAmount = clampAmount(loan.settlementAmount - normalizedAmount, 0, loan.originalSettlementAmount);
+  const timestamp = nowTimestamp();
+
+  return {
+    ...loan,
+    settlementAmount: nextRemainingAmount,
+    isCompleted: nextRemainingAmount <= 0,
+    updatedAt: timestamp,
+    lastEditedByUid: actor.userId,
+    lastEditedByEmail: normalizeEmail(actor.userEmail),
+    lastEditedAt: timestamp,
+    history: [
+      buildActivityEntry(
+        loan.id,
+        actor,
+        "partial_payment",
+        `Registro un abono de ${formatCurrency(normalizedAmount)}. Restan ${formatCurrency(nextRemainingAmount)}.`
+      ),
+      ...loan.history
+    ].sort((left, right) => right.changedAt.localeCompare(left.changedAt))
+  } satisfies SharedLoan;
+}
+
+export function getSharedLoanOriginalSettlementAmount(loan: SharedLoan) {
+  return loan.originalSettlementAmount;
+}
+
 export function getSharedLoanSettlementAmount(loan: SharedLoan) {
   return loan.settlementAmount;
+}
+
+export function getSharedLoanPaidAmount(loan: SharedLoan) {
+  return getPaidAmountFromLoan(loan);
 }
