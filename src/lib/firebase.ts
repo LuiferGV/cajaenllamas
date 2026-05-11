@@ -7,10 +7,11 @@ import {
   signOut,
   type User
 } from "firebase/auth";
-import { getDatabase, onValue, ref, set } from "firebase/database";
-import type { FinanceState } from "../types";
+import { get, getDatabase, onValue, ref, remove, set, update } from "firebase/database";
+import type { FinanceState, SharedLoan } from "../types";
 import { EMPTY_STATE } from "./finance";
 import { normalizeFinanceState } from "./storage";
+import { normalizeSharedLoan, sortSharedLoans } from "./sharedLoans";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDWeXUGGqkKZ6qRjGtlwN9lNdNTmZKVAcw",
@@ -72,6 +73,10 @@ function ensureDatabase() {
   return databaseInstance;
 }
 
+function encodeEmailKey(email: string) {
+  return encodeURIComponent(email.trim().toLowerCase());
+}
+
 export function subscribeAuth(
   onChange: (user: User | null) => void,
   onError?: (error: Error) => void
@@ -95,6 +100,37 @@ export async function signOutSession() {
   return signOut(auth);
 }
 
+export async function ensureUserDirectoryEntry(userId: string, email: string | null) {
+  if (!email) return;
+
+  const database = ensureDatabase();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  await update(ref(database), {
+    [`userProfiles/${userId}`]: {
+      uid: userId,
+      email: normalizedEmail,
+      updatedAt: Date.now()
+    },
+    [`emailDirectory/${encodeEmailKey(normalizedEmail)}`]: {
+      uid: userId,
+      email: normalizedEmail,
+      updatedAt: Date.now()
+    }
+  });
+}
+
+export async function resolveUserByEmail(email: string) {
+  const database = ensureDatabase();
+  const snapshot = await get(ref(database, `emailDirectory/${encodeEmailKey(email)}`));
+  const value = snapshot.val() as { uid?: string; email?: string } | null;
+  if (!value?.uid || !value?.email) return null;
+  return {
+    uid: value.uid,
+    email: value.email
+  };
+}
+
 export function subscribeFinanceState(
   userId: string,
   onChange: (financeState: FinanceState) => void,
@@ -116,4 +152,91 @@ export function subscribeFinanceState(
 export async function saveFinanceStateRemote(userId: string, financeState: FinanceState) {
   const database = ensureDatabase();
   await set(ref(database, `finances/users/${userId}`), financeState);
+}
+
+export function subscribeSharedLoans(
+  userId: string,
+  onChange: (sharedLoans: SharedLoan[]) => void,
+  onError?: (error: Error) => void
+) {
+  const database = ensureDatabase();
+  const membershipRef = ref(database, `userSharedLoans/${userId}`);
+  const loanSubscriptions = new Map<string, () => void>();
+  const loanMap = new Map<string, SharedLoan>();
+
+  const emit = () => {
+    onChange(Array.from(loanMap.values()).sort(sortSharedLoans));
+  };
+
+  const clearLoanSubscriptions = () => {
+    for (const unsubscribe of loanSubscriptions.values()) {
+      unsubscribe();
+    }
+
+    loanSubscriptions.clear();
+    loanMap.clear();
+  };
+
+  const membershipUnsubscribe = onValue(
+    membershipRef,
+    (snapshot) => {
+      const nextIds = new Set(Object.keys((snapshot.val() as Record<string, boolean> | null) ?? {}));
+
+      for (const [loanId, unsubscribe] of loanSubscriptions.entries()) {
+        if (nextIds.has(loanId)) continue;
+        unsubscribe();
+        loanSubscriptions.delete(loanId);
+        loanMap.delete(loanId);
+      }
+
+      for (const loanId of nextIds) {
+        if (loanSubscriptions.has(loanId)) continue;
+
+        const sharedLoanRef = ref(database, `sharedLoans/${loanId}`);
+        const loanUnsubscribe = onValue(
+          sharedLoanRef,
+          (loanSnapshot) => {
+            const rawValue = loanSnapshot.val() as Partial<SharedLoan> | null;
+            if (!rawValue) {
+              loanMap.delete(loanId);
+              emit();
+              return;
+            }
+
+            loanMap.set(loanId, normalizeSharedLoan({ ...rawValue, id: loanId }));
+            emit();
+          },
+          (error) => onError?.(error)
+        );
+
+        loanSubscriptions.set(loanId, loanUnsubscribe);
+      }
+
+      emit();
+    },
+    (error) => onError?.(error)
+  );
+
+  return () => {
+    membershipUnsubscribe();
+    clearLoanSubscriptions();
+  };
+}
+
+export async function saveSharedLoanRemote(sharedLoan: SharedLoan) {
+  const database = ensureDatabase();
+  await update(ref(database), {
+    [`sharedLoans/${sharedLoan.id}`]: sharedLoan,
+    [`userSharedLoans/${sharedLoan.lenderUid}/${sharedLoan.id}`]: true,
+    [`userSharedLoans/${sharedLoan.borrowerUid}/${sharedLoan.id}`]: true
+  });
+}
+
+export async function deleteSharedLoanRemote(sharedLoan: SharedLoan) {
+  const database = ensureDatabase();
+  await update(ref(database), {
+    [`userSharedLoans/${sharedLoan.lenderUid}/${sharedLoan.id}`]: null,
+    [`userSharedLoans/${sharedLoan.borrowerUid}/${sharedLoan.id}`]: null
+  });
+  await remove(ref(database, `sharedLoans/${sharedLoan.id}`));
 }

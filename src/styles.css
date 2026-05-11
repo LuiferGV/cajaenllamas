@@ -88,6 +88,13 @@ select {
   padding: 24px;
 }
 
+.shared-stage,
+.history-stage,
+.dashboard-stage {
+  display: grid;
+  gap: 22px;
+}
+
 .auth-shell {
   position: relative;
   min-height: 100vh;
@@ -346,6 +353,20 @@ select {
 .history-item p {
   margin: 0;
   color: var(--text-main);
+}
+
+.alert-banner {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-strong);
+}
+
+.alert-banner--danger {
+  border-color: rgba(255, 125, 143, 0.24);
+  background: rgba(255, 125, 143, 0.12);
+  color: #ffd8de;
 }
 
 .topbar__nav {
@@ -1633,6 +1654,57 @@ select {
   color: var(--text-main);
 }
 
+.shared-stage__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.shared-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.shared-card__copy {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.shared-loan-list {
+  display: grid;
+  gap: 16px;
+}
+
+.shared-loan-row__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.shared-loan-row__stats div {
+  padding: 12px 13px;
+  border-radius: 18px;
+  border: 1px solid rgba(89, 173, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shared-loan-row__stats span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--cobalt-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.shared-loan-row__stats strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
 .summary-expense-card__note {
   margin: 0;
   color: var(--text-main);
@@ -2139,6 +2211,10 @@ select {
   justify-content: flex-end;
 }
 
+.entry-card__actions--shared {
+  justify-content: flex-start;
+}
+
 .loan-extra-payment {
   display: grid;
   gap: 12px;
@@ -2260,6 +2336,8 @@ select {
   .dashboard-category-grid,
   .dashboard-category-card__stats,
   .summary-loan-card__stats,
+  .shared-stage__grid,
+  .shared-loan-row__stats,
   .summary-expense-card__stats,
   .field-grid {
     grid-template-columns: 1fr;

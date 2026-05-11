@@ -7,7 +7,10 @@ import { FinanceForm } from "./components/FinanceForm";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { MetricCard } from "./components/MetricCard";
 import { useFinanceData } from "./hooks/useFinanceData";
+import { useSharedLoansData } from "./hooks/useSharedLoansData";
 import { useFirebaseSession, type AuthMode } from "./hooks/useFirebaseSession";
+import { SharedLoanForm } from "./components/SharedLoanForm";
+import { SharedLoanRow } from "./components/SharedLoanRow";
 import {
   buildItemFromDraft,
   createEmptyDraft,
@@ -40,10 +43,19 @@ import {
   upsertItem,
   validateDraft
 } from "./lib/finance";
-import type { EntryKind, FinanceDraft, FinanceItem, FinanceState } from "./types";
+import {
+  buildSharedLoanFromDraft,
+  createEmptySharedLoanDraft,
+  isSharedLoanEditable,
+  registerSharedLoanExtraPayment,
+  registerSharedLoanInstallment,
+  validateSharedLoanDraft
+} from "./lib/sharedLoans";
+import { resolveUserByEmail } from "./lib/firebase";
+import type { EntryKind, FinanceDraft, FinanceItem, FinanceState, SharedLoan, SharedLoanDraft } from "./types";
 
 type FormMode = "create" | "edit";
-type AppView = "overview" | "dashboard" | "history";
+type AppView = "overview" | "dashboard" | "history" | "shared";
 
 const FILTER_OPTIONS: Array<{ value: EntryKind | "all"; label: string }> = [
   { value: "all", label: "Todos" },
@@ -56,15 +68,22 @@ const FILTER_OPTIONS: Array<{ value: EntryKind | "all"; label: string }> = [
 export default function App() {
   const { sessionState, userEmail, userId, authError, isSubmitting, login, register, logout } = useFirebaseSession();
   const { financeState, persistState } = useFinanceData(sessionState === "authenticated", userId);
+  const { sharedLoans, sharedLoansState, sharedLoansError, saveSharedLoan } = useSharedLoansData(
+    sessionState === "authenticated",
+    userId
+  );
   const [draft, setDraft] = useState<FinanceDraft>(() => createEmptyDraft());
+  const [sharedLoanDraft, setSharedLoanDraft] = useState<SharedLoanDraft>(() => createEmptySharedLoanDraft());
   const [formMode, setFormMode] = useState<FormMode>("create");
   const [activeView, setActiveView] = useState<AppView>("overview");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [kindFilter, setKindFilter] = useState<EntryKind | "all">("all");
   const [formError, setFormError] = useState<string | null>(null);
+  const [sharedLoanFormError, setSharedLoanFormError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [isSharedComposerOpen, setIsSharedComposerOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [loginEmail, setLoginEmail] = useState("luifer.gv@gmail.com");
   const [loginPassword, setLoginPassword] = useState("");
@@ -82,17 +101,25 @@ export default function App() {
   }, [sessionState]);
 
   useEffect(() => {
-    if (!isComposerOpen) return undefined;
+    if (!isComposerOpen && !isSharedComposerOpen) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsComposerOpen(false);
-        setDraft(createEmptyDraft());
-        setFormMode("create");
-        setEditingId(null);
-        setFormError(null);
-        setPendingDeleteId(null);
+        if (isComposerOpen) {
+          setIsComposerOpen(false);
+          setDraft(createEmptyDraft());
+          setFormMode("create");
+          setEditingId(null);
+          setFormError(null);
+          setPendingDeleteId(null);
+        }
+
+        if (isSharedComposerOpen) {
+          setIsSharedComposerOpen(false);
+          setSharedLoanDraft(createEmptySharedLoanDraft());
+          setSharedLoanFormError(null);
+        }
       }
     };
 
@@ -103,7 +130,7 @@ export default function App() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [isComposerOpen]);
+  }, [isComposerOpen, isSharedComposerOpen]);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const filteredItems = filterItems(financeState.items, deferredSearchTerm, kindFilter);
@@ -118,6 +145,17 @@ export default function App() {
   const visibleCategorySummaries = categorySummaries.filter((summary) => summary.activeCount > 0);
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
+  const sharedLoansAsLender = sharedLoans.filter((loan) => loan.lenderUid === userId);
+  const sharedLoansAsBorrower = sharedLoans.filter((loan) => loan.borrowerUid === userId);
+  const activeSharedLoans = sharedLoans.filter((loan) => !loan.isCompleted);
+  const sharedLoansCreatedByMe = activeSharedLoans.filter((loan) => isSharedLoanEditable(loan, userId));
+  const sharedLoansIDebt = activeSharedLoans.filter((loan) => !isSharedLoanEditable(loan, userId));
+  const sharedPrincipalLent = sharedLoansAsLender.reduce((sum, loan) => sum + loan.principalRemaining, 0);
+  const sharedPrincipalBorrowed = sharedLoansAsBorrower.reduce((sum, loan) => sum + loan.principalRemaining, 0);
+  const sharedPayments = sharedLoans
+    .flatMap((loan) => loan.history)
+    .sort((left, right) => right.paidAt.localeCompare(left.paidAt))
+    .slice(0, 8);
 
   const handleDraftChange = (field: keyof FinanceDraft, value: string) => {
     setDraft((current) => {
@@ -195,6 +233,14 @@ export default function App() {
     setFormError(null);
   };
 
+  const handleSharedLoanDraftChange = (field: keyof SharedLoanDraft, value: string) => {
+    setSharedLoanDraft((current) => ({
+      ...current,
+      [field]: value
+    }));
+    setSharedLoanFormError(null);
+  };
+
   const resetForm = () => {
     setDraft(createEmptyDraft());
     setFormMode("create");
@@ -203,14 +249,29 @@ export default function App() {
     setPendingDeleteId(null);
   };
 
+  const resetSharedLoanForm = () => {
+    setSharedLoanDraft(createEmptySharedLoanDraft());
+    setSharedLoanFormError(null);
+  };
+
   const closeComposer = () => {
     setIsComposerOpen(false);
     resetForm();
   };
 
+  const closeSharedComposer = () => {
+    setIsSharedComposerOpen(false);
+    resetSharedLoanForm();
+  };
+
   const openCreateComposer = () => {
     resetForm();
     setIsComposerOpen(true);
+  };
+
+  const openSharedComposer = () => {
+    resetSharedLoanForm();
+    setIsSharedComposerOpen(true);
   };
 
   const handleFormReset = () => {
@@ -307,6 +368,62 @@ export default function App() {
       (current) => registerLoanExtraPayment(current, itemId, parsedAmount),
       "Refuerzo aplicado al saldo del prestamo"
     );
+  };
+
+  const handleSharedLoanSubmit = () => {
+    const validationError = validateSharedLoanDraft(sharedLoanDraft, userEmail);
+    if (validationError) {
+      setSharedLoanFormError(validationError);
+      return;
+    }
+
+    if (!userId || !userEmail) {
+      setSharedLoanFormError("No se pudo identificar tu usuario para crear este prestamo compartido.");
+      return;
+    }
+
+    void (async () => {
+      const borrower = await resolveUserByEmail(sharedLoanDraft.borrowerEmail);
+      if (!borrower) {
+        setSharedLoanFormError("Ese email aun no existe en el sistema. La otra persona debe crear su cuenta primero.");
+        return;
+      }
+
+      const sharedLoan = buildSharedLoanFromDraft(sharedLoanDraft, {
+        lenderUid: userId,
+        lenderEmail: userEmail,
+        borrowerUid: borrower.uid,
+        borrowerEmail: borrower.email
+      });
+
+      const saved = await saveSharedLoan(sharedLoan);
+      if (!saved) {
+        setSharedLoanFormError(sharedLoansError ?? "No se pudo guardar el prestamo compartido.");
+        return;
+      }
+
+      setActiveView("shared");
+      closeSharedComposer();
+    })();
+  };
+
+  const handleSharedLoanPay = (loanId: string) => {
+    const loan = sharedLoans.find((entry) => entry.id === loanId);
+    if (!loan || !userId || !userEmail) return;
+    if (!isSharedLoanEditable(loan, userId)) return;
+
+    const nextLoan = registerSharedLoanInstallment(loan, userId, userEmail);
+    void saveSharedLoan(nextLoan);
+  };
+
+  const handleSharedLoanExtraPayment = (loanId: string, nextAmount: string) => {
+    const loan = sharedLoans.find((entry) => entry.id === loanId);
+    const parsedAmount = parseAmount(nextAmount);
+    if (!loan || !userId || !userEmail || parsedAmount <= 0) return;
+    if (!isSharedLoanEditable(loan, userId)) return;
+
+    const nextLoan = registerSharedLoanExtraPayment(loan, parsedAmount, userId, userEmail);
+    void saveSharedLoan(nextLoan);
   };
 
   const handleEdit = (item: FinanceItem) => {
@@ -448,6 +565,13 @@ export default function App() {
             >
               Pagos recientes
             </button>
+            <button
+              type="button"
+              className={`topbar__nav-button ${activeView === "shared" ? "is-active" : ""}`}
+              onClick={() => setActiveView("shared")}
+            >
+              Gasto compartido
+            </button>
           </nav>
 
           <div className="topbar__actions">
@@ -458,9 +582,9 @@ export default function App() {
             <button
               type="button"
               className="primary-button primary-button--icon"
-              onClick={openCreateComposer}
-              aria-label="Nuevo registro"
-              title="Nuevo registro"
+              onClick={activeView === "shared" ? openSharedComposer : openCreateComposer}
+              aria-label={activeView === "shared" ? "Nuevo prestamo compartido" : "Nuevo registro"}
+              title={activeView === "shared" ? "Nuevo prestamo compartido" : "Nuevo registro"}
             >
               +
             </button>
@@ -1028,6 +1152,160 @@ export default function App() {
             )}
           </article>
         </section>
+      ) : activeView === "shared" ? (
+        <section className="shared-stage">
+          <section className="metrics-grid">
+            <MetricCard
+              label="Me deben"
+              value={formatCurrency(sharedPrincipalLent)}
+              detail={`${sharedLoansCreatedByMe.length} prestamo(s) compartido(s) donde eres acreedor`}
+              tone="cobalt"
+            />
+            <MetricCard
+              label="Debo"
+              value={formatCurrency(sharedPrincipalBorrowed)}
+              detail={`${sharedLoansIDebt.length} prestamo(s) compartido(s) donde eres deudor`}
+              tone="coral"
+            />
+            <MetricCard
+              label="Movimientos compartidos"
+              value={String(sharedPayments.length)}
+              detail={sharedLoansState === "loading" ? "Cargando prestamos compartidos..." : "Pagos y refuerzos recientes entre usuarios"}
+              tone="mint"
+            />
+          </section>
+
+          <section className="shared-stage__grid">
+            <article className="surface-card shared-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Me deben</p>
+                  <h2>Prestamos que tu controlas</h2>
+                </div>
+                <span className="status-pill status-pill--section status-pill--section-loan">
+                  {sharedLoansCreatedByMe.length} activos
+                </span>
+              </div>
+
+              <p className="shared-card__copy">
+                Aqui tu eres el acreedor. Solo tu puedes registrar cuotas o refuerzos y la otra persona lo ve en solo lectura.
+              </p>
+
+              {sharedLoansCreatedByMe.length === 0 ? (
+                <div className="empty-state empty-state--compact">
+                  <h3>Aun no tienes prestamos compartidos como acreedor</h3>
+                  <p>Usa el boton + desde esta pestaña para crear uno nuevo con otro usuario del sistema.</p>
+                </div>
+              ) : (
+                <div className="shared-loan-list">
+                  {sharedLoansCreatedByMe.map((loan) => (
+                    <SharedLoanRow
+                      key={loan.id}
+                      loan={loan}
+                      currentUserId={userId}
+                      onPay={() => handleSharedLoanPay(loan.id)}
+                      onAddExtraPayment={(nextAmount) => handleSharedLoanExtraPayment(loan.id, nextAmount)}
+                    />
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="surface-card shared-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Debo</p>
+                  <h2>Prestamos que ves en modo lectura</h2>
+                </div>
+                <span className="status-pill status-pill--section status-pill--section-variable">
+                  {sharedLoansIDebt.length} activos
+                </span>
+              </div>
+
+              <p className="shared-card__copy">
+                Estos prestamos fueron creados por el acreedor. Tu puedes ver el saldo y el avance, pero no registrar pagos.
+              </p>
+
+              {sharedLoansIDebt.length === 0 ? (
+                <div className="empty-state empty-state--compact">
+                  <h3>No tienes deudas compartidas visibles ahora mismo</h3>
+                  <p>Cuando otro usuario te cargue un prestamo, te aparecera aqui automaticamente.</p>
+                </div>
+              ) : (
+                <div className="shared-loan-list">
+                  {sharedLoansIDebt.map((loan) => (
+                    <SharedLoanRow
+                      key={loan.id}
+                      loan={loan}
+                      currentUserId={userId}
+                      onPay={() => handleSharedLoanPay(loan.id)}
+                      onAddExtraPayment={(nextAmount) => handleSharedLoanExtraPayment(loan.id, nextAmount)}
+                    />
+                  ))}
+                </div>
+              )}
+            </article>
+          </section>
+
+          <section className="shared-history-stage">
+            <article className="surface-card shared-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Historico compartido</p>
+                  <h2>Pagos y refuerzos recientes</h2>
+                </div>
+                <span className="status-pill status-pill--neutral">{sharedPayments.length} movimiento(s)</span>
+              </div>
+
+              {sharedLoansError ? <div className="alert-banner alert-banner--danger">{sharedLoansError}</div> : null}
+
+              {sharedPayments.length === 0 ? (
+                <div className="empty-state empty-state--compact">
+                  <h3>No hay movimientos compartidos todavia</h3>
+                  <p>Cuando registres la primera cuota o un refuerzo, aparecera aqui.</p>
+                </div>
+              ) : (
+                <div className="history-list">
+                  {sharedPayments.map((payment) => (
+                    <article key={payment.id} className="history-item">
+                      <div className="history-item__identity">
+                        <CompanyLogo
+                          entityName={payment.lenderUid === userId ? payment.borrowerEmail : payment.lenderEmail}
+                          kind="loan"
+                          size="sm"
+                        />
+                        <div>
+                          <strong>{payment.title}</strong>
+                          <p className="history-item__entity">
+                            {payment.lenderUid === userId ? "Me deben" : "Debo"} · {payment.recordedByEmail}
+                          </p>
+                          <p>
+                            {payment.paymentType === "loan_extra_payment"
+                              ? "Refuerzo aplicado"
+                              : payment.installmentNumber && payment.installmentsTotal
+                                ? `Cuota ${payment.installmentNumber}/${payment.installmentsTotal}`
+                                : "Movimiento compartido"}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <strong>{formatCurrency(payment.amount)}</strong>
+                        <p>
+                          {formatDate(payment.paidAt)}
+                          {payment.paymentType === "loan_extra_payment"
+                            ? " · No mueve la cuota"
+                            : payment.nextDueDate
+                              ? ` · Proximo ${formatDate(payment.nextDueDate)}`
+                              : " · Prestamo cerrado"}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          </section>
+        </section>
       ) : (
         <section className="history-stage">
           <HistoryPanel history={financeState.history} />
@@ -1056,6 +1334,34 @@ export default function App() {
             />
           </div>
           <button type="button" className="modal-backdrop-dismiss" aria-label="Cerrar modal" onClick={closeComposer} />
+        </div>
+      ) : null}
+
+      {isSharedComposerOpen ? (
+        <div className="modal-shell" role="dialog" aria-modal="true" aria-labelledby="shared-loan-modal-title">
+          <div className="modal-panel" onClick={(event) => event.stopPropagation()}>
+            <SharedLoanForm
+              values={sharedLoanDraft}
+              mode="create"
+              error={sharedLoanFormError}
+              currentUserEmail={userEmail}
+              onChange={handleSharedLoanDraftChange}
+              onSubmit={handleSharedLoanSubmit}
+              onReset={closeSharedComposer}
+              headerAction={
+                <button type="button" className="outline-button modal-close-button" onClick={closeSharedComposer}>
+                  Cerrar
+                </button>
+              }
+              titleId="shared-loan-modal-title"
+            />
+          </div>
+          <button
+            type="button"
+            className="modal-backdrop-dismiss"
+            aria-label="Cerrar modal"
+            onClick={closeSharedComposer}
+          />
         </div>
       ) : null}
     </div>

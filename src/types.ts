@@ -62,6 +62,57 @@ export interface FinanceState {
   history: PaymentHistoryEntry[];
 }
 
+export interface SharedLoanPaymentEntry {
+  id: string;
+  loanId: string;
+  title: string;
+  lenderUid: string;
+  lenderEmail: string;
+  borrowerUid: string;
+  borrowerEmail: string;
+  amount: number;
+  paidAt: string;
+  coveredDueDate: string | null;
+  nextDueDate: string | null;
+  installmentNumber: number | null;
+  installmentsTotal: number | null;
+  paymentType: Extract<PaymentType, "loan_installment" | "loan_extra_payment">;
+  recordedByUid: string;
+  recordedByEmail: string;
+}
+
+export interface SharedLoan {
+  id: string;
+  title: string;
+  lenderUid: string;
+  lenderEmail: string;
+  borrowerUid: string;
+  borrowerEmail: string;
+  amount: number;
+  principalAmount: number;
+  principalRemaining: number;
+  dueDate: string | null;
+  notes: string;
+  recurrence: "monthly";
+  createdAt: string;
+  updatedAt: string;
+  lastPaidAt: string | null;
+  installmentsTotal: number;
+  installmentsPaid: number;
+  isCompleted: boolean;
+  history: SharedLoanPaymentEntry[];
+}
+
+export interface SharedLoanDraft {
+  borrowerEmail: string;
+  title: string;
+  amount: string;
+  principalAmount: string;
+  installmentsTotal: string;
+  dueDate: string;
+  notes: string;
+}
+
 export interface FinanceDraft {
   entityName: string;
   conceptName: string;
