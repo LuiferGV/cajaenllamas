@@ -16,6 +16,12 @@
       "$loanId": {
         ".write": "auth != null && (((!data.exists()) && (newData.child('lenderEmail').val() === auth.token.email || newData.child('borrowerEmail').val() === auth.token.email)) || data.child('lenderEmail').val() === auth.token.email || data.child('borrowerEmail').val() === auth.token.email)"
       }
+    },
+    "discounts": {
+      ".read": "auth != null",
+      "$discountId": {
+        ".write": "auth != null"
+      }
     }
   }
 }

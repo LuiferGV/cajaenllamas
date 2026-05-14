@@ -98,6 +98,7 @@ select {
 }
 
 .shared-stage,
+.discount-stage,
 .history-stage,
 .dashboard-stage {
   display: grid;
@@ -504,6 +505,7 @@ select {
 }
 
 .summary-stage,
+.discount-stage,
 .history-stage,
 .dashboard-stage {
   display: grid;
@@ -1670,6 +1672,352 @@ select {
   color: var(--text-main);
 }
 
+.discount-category-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.discount-category-option {
+  --discount-accent: #59adff;
+  --discount-soft: rgba(89, 173, 255, 0.08);
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(146, 187, 214, 0.16);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--discount-accent) 16%, transparent), transparent 34%),
+    linear-gradient(180deg, var(--discount-soft), rgba(255, 255, 255, 0.025));
+  color: var(--text-strong);
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.discount-category-option:hover {
+  transform: translateY(-1px);
+}
+
+.discount-category-option.is-active {
+  border-color: color-mix(in srgb, var(--discount-accent) 52%, white 20%);
+  box-shadow: 0 14px 24px color-mix(in srgb, var(--discount-accent) 14%, transparent);
+}
+
+.discount-category-option__label {
+  font-weight: 800;
+}
+
+.discount-category-option__hint {
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+
+.discount-category-option--supermarket {
+  --discount-accent: #60e6c7;
+  --discount-soft: rgba(96, 230, 199, 0.08);
+}
+
+.discount-category-option--fuel {
+  --discount-accent: #ff957a;
+  --discount-soft: rgba(255, 149, 122, 0.08);
+}
+
+.discount-category-option--pharmacy {
+  --discount-accent: #59adff;
+  --discount-soft: rgba(89, 173, 255, 0.08);
+}
+
+.discount-category-option--shopping {
+  --discount-accent: #ffca6d;
+  --discount-soft: rgba(255, 202, 109, 0.08);
+}
+
+.discount-category-option--services {
+  --discount-accent: #79d4ff;
+  --discount-soft: rgba(121, 212, 255, 0.08);
+}
+
+.discount-category-option--dining {
+  --discount-accent: #ff8b8b;
+  --discount-soft: rgba(255, 139, 139, 0.08);
+}
+
+.discount-category-option--travel {
+  --discount-accent: #75b8ff;
+  --discount-soft: rgba(117, 184, 255, 0.08);
+}
+
+.discount-category-option--other {
+  --discount-accent: #9db5c6;
+  --discount-soft: rgba(157, 181, 198, 0.08);
+}
+
+.discount-form-preview {
+  --discount-accent: #59adff;
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--discount-accent) 24%, white 12%);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--discount-accent) 16%, transparent), transparent 36%),
+    rgba(255, 255, 255, 0.03);
+}
+
+.discount-form-preview strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
+.discount-form-preview span {
+  color: var(--text-main);
+}
+
+.discount-form-preview--supermarket {
+  --discount-accent: #60e6c7;
+}
+
+.discount-form-preview--fuel {
+  --discount-accent: #ff957a;
+}
+
+.discount-form-preview--pharmacy {
+  --discount-accent: #59adff;
+}
+
+.discount-form-preview--shopping {
+  --discount-accent: #ffca6d;
+}
+
+.discount-form-preview--services {
+  --discount-accent: #79d4ff;
+}
+
+.discount-form-preview--dining {
+  --discount-accent: #ff8b8b;
+}
+
+.discount-form-preview--travel {
+  --discount-accent: #75b8ff;
+}
+
+.discount-form-preview--other {
+  --discount-accent: #9db5c6;
+}
+
+.discount-category-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.discount-section-card {
+  --discount-accent: #59adff;
+  --discount-soft: rgba(89, 173, 255, 0.08);
+  --discount-border: rgba(89, 173, 255, 0.18);
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--discount-border);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--discount-accent) 16%, transparent), transparent 26%),
+    linear-gradient(180deg, var(--discount-soft), rgba(255, 255, 255, 0.02));
+}
+
+.discount-section-card--supermarket {
+  --discount-accent: #60e6c7;
+  --discount-soft: rgba(96, 230, 199, 0.08);
+  --discount-border: rgba(96, 230, 199, 0.18);
+}
+
+.discount-section-card--fuel {
+  --discount-accent: #ff957a;
+  --discount-soft: rgba(255, 149, 122, 0.08);
+  --discount-border: rgba(255, 149, 122, 0.18);
+}
+
+.discount-section-card--pharmacy {
+  --discount-accent: #59adff;
+  --discount-soft: rgba(89, 173, 255, 0.08);
+  --discount-border: rgba(89, 173, 255, 0.18);
+}
+
+.discount-section-card--shopping {
+  --discount-accent: #ffca6d;
+  --discount-soft: rgba(255, 202, 109, 0.08);
+  --discount-border: rgba(255, 202, 109, 0.18);
+}
+
+.discount-section-card--services {
+  --discount-accent: #79d4ff;
+  --discount-soft: rgba(121, 212, 255, 0.08);
+  --discount-border: rgba(121, 212, 255, 0.18);
+}
+
+.discount-section-card--dining {
+  --discount-accent: #ff8b8b;
+  --discount-soft: rgba(255, 139, 139, 0.08);
+  --discount-border: rgba(255, 139, 139, 0.18);
+}
+
+.discount-section-card--travel {
+  --discount-accent: #75b8ff;
+  --discount-soft: rgba(117, 184, 255, 0.08);
+  --discount-border: rgba(117, 184, 255, 0.18);
+}
+
+.discount-section-card--other {
+  --discount-accent: #9db5c6;
+  --discount-soft: rgba(157, 181, 198, 0.08);
+  --discount-border: rgba(157, 181, 198, 0.18);
+}
+
+.discount-section-card__subtitle {
+  margin: 8px 0 0;
+  color: var(--text-main);
+}
+
+.discount-section-card__pills {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.discount-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.discount-card {
+  --discount-accent: #59adff;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--discount-accent) 20%, white 12%);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--discount-accent) 16%, transparent), transparent 30%),
+    rgba(11, 19, 29, 0.74);
+}
+
+.discount-card--supermarket {
+  --discount-accent: #60e6c7;
+}
+
+.discount-card--fuel {
+  --discount-accent: #ff957a;
+}
+
+.discount-card--pharmacy {
+  --discount-accent: #59adff;
+}
+
+.discount-card--shopping {
+  --discount-accent: #ffca6d;
+}
+
+.discount-card--services {
+  --discount-accent: #79d4ff;
+}
+
+.discount-card--dining {
+  --discount-accent: #ff8b8b;
+}
+
+.discount-card--travel {
+  --discount-accent: #75b8ff;
+}
+
+.discount-card--other {
+  --discount-accent: #9db5c6;
+}
+
+.discount-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.discount-card__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.discount-card__brand h3 {
+  margin: 8px 0 0;
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.discount-card__provider {
+  margin: 8px 0 0;
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+
+.discount-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.discount-card__percent {
+  display: grid;
+  justify-items: end;
+  min-width: 88px;
+}
+
+.discount-card__percent strong {
+  font-family: "Sora", sans-serif;
+  font-size: 2rem;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--discount-accent) 76%, white 24%);
+}
+
+.discount-card__percent span {
+  color: var(--text-main);
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.discount-card__meta {
+  display: grid;
+  gap: 8px;
+  color: var(--text-main);
+}
+
+.discount-card__meta p {
+  margin: 0;
+}
+
+.discount-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid rgba(146, 187, 214, 0.12);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.discount-card__confirm {
+  padding-top: 2px;
+}
+
 .shared-stage__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2544,6 +2892,11 @@ select {
   .category-card__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .discount-category-picker,
+  .discount-card-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -2580,10 +2933,12 @@ select {
 
   .kind-selector,
   .loan-mode-picker,
+  .discount-category-picker,
   .category-card__stats,
   .dashboard-category-grid,
   .dashboard-category-card__stats,
   .shared-balance-grid,
+  .discount-card-grid,
   .summary-loan-card__stats,
   .shared-stage__grid,
   .shared-loan-row__stats,
@@ -2631,6 +2986,17 @@ select {
 
   .shared-action-row__icons {
     justify-content: flex-start;
+  }
+
+  .discount-card__top,
+  .discount-card__actions,
+  .discount-card__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .discount-card__percent {
+    justify-items: start;
   }
 
   .installment-plan__row {

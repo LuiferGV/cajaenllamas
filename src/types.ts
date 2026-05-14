@@ -62,6 +62,35 @@ export interface FinanceState {
   history: PaymentHistoryEntry[];
 }
 
+export type DiscountCategory = "supermarket" | "fuel" | "pharmacy" | "shopping" | "services" | "dining" | "travel" | "other";
+
+export interface DiscountItem {
+  id: string;
+  providerName: string;
+  commerceName: string;
+  category: DiscountCategory;
+  discountPercent: number;
+  conditions: string;
+  validUntil: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUid: string;
+  createdByEmail: string;
+  updatedByUid: string;
+  updatedByEmail: string;
+}
+
+export interface DiscountDraft {
+  providerName: string;
+  commerceName: string;
+  category: DiscountCategory;
+  discountPercent: string;
+  conditions: string;
+  validUntil: string;
+  notes: string;
+}
+
 export type SharedSplitType = "equal_split" | "full_amount";
 
 export type SharedSplitDraftMode =

@@ -2,15 +2,28 @@ import { startTransition, useDeferredValue, useEffect, useRef, useState } from "
 import brandLogo from "../cajaenllamas.png";
 import { AuthScreen } from "./components/AuthScreen";
 import { CompanyLogo } from "./components/CompanyLogo";
+import { DiscountCard } from "./components/DiscountCard";
+import { DiscountForm } from "./components/DiscountForm";
 import { ExpenseRow } from "./components/ExpenseRow";
 import { FinanceForm } from "./components/FinanceForm";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { MetricCard } from "./components/MetricCard";
+import { useDiscountsData } from "./hooks/useDiscountsData";
 import { useFinanceData } from "./hooks/useFinanceData";
 import { useSharedLoansData } from "./hooks/useSharedLoansData";
 import { useFirebaseSession, type AuthMode } from "./hooks/useFirebaseSession";
 import { SharedLoanForm } from "./components/SharedLoanForm";
 import { SharedLoanRow } from "./components/SharedLoanRow";
+import {
+  buildDiscountFromDraft,
+  createEmptyDiscountDraft,
+  DISCOUNT_CATEGORY_OPTIONS,
+  getDiscountCategoryLabel,
+  getDiscountCategoryTheme,
+  getDiscountDraftFromItem,
+  isDiscountExpiringSoon,
+  validateDiscountDraft
+} from "./lib/discounts";
 import {
   buildItemFromDraft,
   createEmptyDraft,
@@ -57,11 +70,12 @@ import {
   updateSharedLoanFromDraft,
   validateSharedLoanDraft
 } from "./lib/sharedLoans";
-import type { EntryKind, FinanceDraft, FinanceItem, FinanceState, SharedLoan, SharedLoanDraft } from "./types";
+import type { DiscountDraft, DiscountItem, EntryKind, FinanceDraft, FinanceItem, FinanceState, SharedLoan, SharedLoanDraft } from "./types";
 
 type FormMode = "create" | "edit";
 type SharedFormMode = "create" | "edit";
-type AppView = "overview" | "dashboard" | "history" | "shared";
+type DiscountFormMode = "create" | "edit";
+type AppView = "overview" | "dashboard" | "history" | "shared" | "discounts";
 
 const FILTER_OPTIONS: Array<{ value: EntryKind | "all"; label: string }> = [
   { value: "all", label: "Todos" },
@@ -74,26 +88,34 @@ const FILTER_OPTIONS: Array<{ value: EntryKind | "all"; label: string }> = [
 export default function App() {
   const { sessionState, userEmail, userId, authError, isSubmitting, login, register, logout } = useFirebaseSession();
   const { financeState, persistState } = useFinanceData(sessionState === "authenticated", userId);
+  const { discounts, discountsState, discountsError, saveDiscount, deleteDiscount } = useDiscountsData(sessionState === "authenticated");
   const { sharedLoans, sharedLoansState, sharedLoansError, saveSharedLoan, deleteSharedLoan } = useSharedLoansData(
     sessionState === "authenticated",
     userEmail
   );
   const [draft, setDraft] = useState<FinanceDraft>(() => createEmptyDraft());
+  const [discountDraft, setDiscountDraft] = useState<DiscountDraft>(() => createEmptyDiscountDraft());
   const [sharedLoanDraft, setSharedLoanDraft] = useState<SharedLoanDraft>(() => createEmptySharedLoanDraft());
   const [formMode, setFormMode] = useState<FormMode>("create");
+  const [discountFormMode, setDiscountFormMode] = useState<DiscountFormMode>("create");
   const [sharedFormMode, setSharedFormMode] = useState<SharedFormMode>("create");
   const [activeView, setActiveView] = useState<AppView>("overview");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
   const [editingSharedLoanId, setEditingSharedLoanId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [kindFilter, setKindFilter] = useState<EntryKind | "all">("all");
+  const [discountFormError, setDiscountFormError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [sharedLoanFormError, setSharedLoanFormError] = useState<string | null>(null);
+  const [isSubmittingDiscount, setIsSubmittingDiscount] = useState(false);
   const [isSubmittingSharedLoan, setIsSubmittingSharedLoan] = useState(false);
   const [isSettlingAllShared, setIsSettlingAllShared] = useState(false);
   const [sharedCounterpartyFilter, setSharedCounterpartyFilter] = useState<string>("all");
+  const [pendingDiscountDeleteId, setPendingDiscountDeleteId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingSharedDeleteId, setPendingSharedDeleteId] = useState<string | null>(null);
+  const [isDiscountComposerOpen, setIsDiscountComposerOpen] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isSharedComposerOpen, setIsSharedComposerOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
@@ -113,7 +135,7 @@ export default function App() {
   }, [sessionState]);
 
   useEffect(() => {
-    if (!isComposerOpen && !isSharedComposerOpen) return undefined;
+    if (!isComposerOpen && !isSharedComposerOpen && !isDiscountComposerOpen) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     const handleEscape = (event: KeyboardEvent) => {
@@ -136,6 +158,16 @@ export default function App() {
           setIsSubmittingSharedLoan(false);
           setPendingSharedDeleteId(null);
         }
+
+        if (isDiscountComposerOpen) {
+          setIsDiscountComposerOpen(false);
+          setDiscountDraft(createEmptyDiscountDraft());
+          setDiscountFormMode("create");
+          setEditingDiscountId(null);
+          setDiscountFormError(null);
+          setIsSubmittingDiscount(false);
+          setPendingDiscountDeleteId(null);
+        }
       }
     };
 
@@ -146,7 +178,7 @@ export default function App() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [isComposerOpen, isSharedComposerOpen]);
+  }, [isComposerOpen, isDiscountComposerOpen, isSharedComposerOpen]);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const filteredItems = filterItems(financeState.items, deferredSearchTerm, kindFilter);
@@ -257,6 +289,24 @@ export default function App() {
     )
     .sort((left, right) => right.changedAt.localeCompare(left.changedAt))
     .slice(0, 10);
+  const expiringSoonDiscounts = discounts.filter((discount) => isDiscountExpiringSoon(discount));
+  const featuredDiscount =
+    discounts.length > 0
+      ? [...discounts].sort((left, right) => {
+          if (right.discountPercent !== left.discountPercent) {
+            return right.discountPercent - left.discountPercent;
+          }
+
+          return left.validUntil.localeCompare(right.validUntil);
+        })[0]
+      : null;
+  const discountCategorySections = DISCOUNT_CATEGORY_OPTIONS.map((option) => ({
+    ...option,
+    items: discounts.filter((discount) => discount.category === option.value),
+    expiringSoonCount: discounts.filter(
+      (discount) => discount.category === option.value && isDiscountExpiringSoon(discount)
+    ).length
+  })).filter((section) => section.items.length > 0);
 
   useEffect(() => {
     if (sharedCounterpartyFilter === "all") return;
@@ -350,6 +400,14 @@ export default function App() {
     setSharedLoanFormError(null);
   };
 
+  const handleDiscountDraftChange = (field: keyof DiscountDraft, value: string) => {
+    setDiscountDraft((current) => ({
+      ...current,
+      [field]: value
+    }));
+    setDiscountFormError(null);
+  };
+
   const resetForm = () => {
     setDraft(createEmptyDraft());
     setFormMode("create");
@@ -367,6 +425,15 @@ export default function App() {
     setPendingSharedDeleteId(null);
   };
 
+  const resetDiscountForm = () => {
+    setDiscountDraft(createEmptyDiscountDraft());
+    setDiscountFormMode("create");
+    setEditingDiscountId(null);
+    setDiscountFormError(null);
+    setIsSubmittingDiscount(false);
+    setPendingDiscountDeleteId(null);
+  };
+
   const closeComposer = () => {
     setIsComposerOpen(false);
     resetForm();
@@ -375,6 +442,11 @@ export default function App() {
   const closeSharedComposer = () => {
     setIsSharedComposerOpen(false);
     resetSharedLoanForm();
+  };
+
+  const closeDiscountComposer = () => {
+    setIsDiscountComposerOpen(false);
+    resetDiscountForm();
   };
 
   const openCreateComposer = () => {
@@ -387,6 +459,11 @@ export default function App() {
     setIsSharedComposerOpen(true);
   };
 
+  const openDiscountComposer = () => {
+    resetDiscountForm();
+    setIsDiscountComposerOpen(true);
+  };
+
   const openSharedEditor = (loan: SharedLoan) => {
     startTransition(() => {
       setSharedLoanDraft(getSharedLoanDraftFromItem(loan, userEmail));
@@ -395,6 +472,17 @@ export default function App() {
       setPendingSharedDeleteId(null);
       setSharedLoanFormError(null);
       setIsSharedComposerOpen(true);
+    });
+  };
+
+  const openDiscountEditor = (discount: DiscountItem) => {
+    startTransition(() => {
+      setDiscountDraft(getDiscountDraftFromItem(discount));
+      setDiscountFormMode("edit");
+      setEditingDiscountId(discount.id);
+      setPendingDiscountDeleteId(null);
+      setDiscountFormError(null);
+      setIsDiscountComposerOpen(true);
     });
   };
 
@@ -538,6 +626,50 @@ export default function App() {
     })();
   };
 
+  const handleDiscountSubmit = () => {
+    const validationError = validateDiscountDraft(discountDraft);
+    if (validationError) {
+      setDiscountFormError(validationError);
+      return;
+    }
+
+    if (!userId || !userEmail) {
+      setDiscountFormError("No se pudo identificar tu usuario para cargar este descuento.");
+      return;
+    }
+
+    setDiscountFormError(null);
+    setIsSubmittingDiscount(true);
+
+    void (async () => {
+      try {
+        const existingDiscount = editingDiscountId ? discounts.find((entry) => entry.id === editingDiscountId) ?? null : null;
+        const discount = buildDiscountFromDraft(
+          discountDraft,
+          {
+            userId,
+            userEmail
+          },
+          existingDiscount
+        );
+
+        const saved = await saveDiscount(discount);
+        if (!saved) {
+          setDiscountFormError("No se pudo guardar el descuento global. Revisa tu conexion con Firebase.");
+          return;
+        }
+
+        setActiveView("discounts");
+        closeDiscountComposer();
+      } catch (error) {
+        console.error("No se pudo guardar el descuento", error);
+        setDiscountFormError("No se pudo validar o guardar el descuento. Prueba otra vez.");
+      } finally {
+        setIsSubmittingDiscount(false);
+      }
+    })();
+  };
+
   const handleSharedLoanToggleSettled = (loanId: string) => {
     const loan = sharedLoans.find((entry) => entry.id === loanId);
     if (!loan || !userId || !userEmail) return;
@@ -570,6 +702,22 @@ export default function App() {
       }
 
       setPendingSharedDeleteId(null);
+    })();
+  };
+
+  const handleDiscountDelete = (discountId: string) => {
+    void (async () => {
+      const deleted = await deleteDiscount(discountId);
+      if (!deleted) {
+        setDiscountFormError("No se pudo eliminar el descuento. Prueba otra vez.");
+        return;
+      }
+
+      setPendingDiscountDeleteId(null);
+
+      if (editingDiscountId === discountId) {
+        closeDiscountComposer();
+      }
     })();
   };
 
@@ -745,15 +893,36 @@ export default function App() {
             >
               Gasto compartido
             </button>
+            <button
+              type="button"
+              className={`topbar__nav-button ${activeView === "discounts" ? "is-active" : ""}`}
+              onClick={() => setActiveView("discounts")}
+            >
+              Descuentos
+            </button>
           </nav>
 
           <div className="topbar__toolbar-action">
             <button
               type="button"
               className="primary-button primary-button--icon"
-              onClick={activeView === "shared" ? openSharedComposer : openCreateComposer}
-              aria-label={activeView === "shared" ? "Nuevo gasto compartido" : "Nuevo registro"}
-              title={activeView === "shared" ? "Nuevo gasto compartido" : "Nuevo registro"}
+              onClick={
+                activeView === "shared" ? openSharedComposer : activeView === "discounts" ? openDiscountComposer : openCreateComposer
+              }
+              aria-label={
+                activeView === "shared"
+                  ? "Nuevo gasto compartido"
+                  : activeView === "discounts"
+                    ? "Nuevo descuento"
+                    : "Nuevo registro"
+              }
+              title={
+                activeView === "shared"
+                  ? "Nuevo gasto compartido"
+                  : activeView === "discounts"
+                    ? "Nuevo descuento"
+                    : "Nuevo registro"
+              }
             >
               +
             </button>
@@ -1341,6 +1510,105 @@ export default function App() {
             )}
           </article>
         </section>
+      ) : activeView === "discounts" ? (
+        <section className="discount-stage">
+          {discountsError ? <div className="alert-banner alert-banner--danger">{discountsError}</div> : null}
+
+          <section className="metrics-grid">
+            <MetricCard
+              label="Beneficios activos"
+              value={String(discounts.length)}
+              detail={
+                discountsState === "loading"
+                  ? "Cargando descuentos compartidos..."
+                  : `${discountCategorySections.length} categoria(s) con beneficios visibles`
+              }
+              tone="mint"
+            />
+            <MetricCard
+              label="Mayor ahorro"
+              value={featuredDiscount ? `${featuredDiscount.discountPercent}%` : "0%"}
+              detail={
+                featuredDiscount
+                  ? `${featuredDiscount.commerceName} con ${featuredDiscount.providerName}`
+                  : "Carga tu primer beneficio para destacarlo aqui"
+              }
+              tone="cobalt"
+            />
+            <MetricCard
+              label="Vencen pronto"
+              value={String(expiringSoonDiscounts.length)}
+              detail={
+                expiringSoonDiscounts.length > 0
+                  ? "Promos que vencen en los proximos 7 dias"
+                  : "Sin beneficios por vencer en el corto plazo"
+              }
+              tone="coral"
+            />
+          </section>
+
+          {discounts.length === 0 ? (
+            <article className="surface-card discount-empty-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Descuentos globales</p>
+                  <h2>Beneficios de tarjetas y bancos</h2>
+                </div>
+                <span className="status-pill status-pill--neutral">0 beneficios</span>
+              </div>
+              <div className="empty-state">
+                <h3>{discountsState === "loading" ? "Cargando descuentos..." : "Aun no hay descuentos cargados"}</h3>
+                <p>
+                  {discountsState === "loading"
+                    ? "En unos segundos veras aqui las promos activas compartidas por todos los usuarios."
+                    : "Usa el boton + para cargar promos como supermercados, combustible, farmacia u otras ventajas temporales que todos los usuarios del sistema puedan consultar."}
+                </p>
+              </div>
+            </article>
+          ) : (
+            <section className="discount-category-grid">
+              {discountCategorySections.map((section) => {
+                const sectionTheme = getDiscountCategoryTheme(section.value);
+
+                return (
+                  <article key={section.value} className={`surface-card discount-section-card discount-section-card--${sectionTheme}`}>
+                    <div className="section-heading">
+                      <div>
+                        <p className="eyebrow">Descuentos</p>
+                        <h2>{getDiscountCategoryLabel(section.value)}</h2>
+                        <p className="discount-section-card__subtitle">{section.hint}</p>
+                      </div>
+                      <div className="discount-section-card__pills">
+                        {section.expiringSoonCount > 0 ? (
+                          <span className="status-pill status-pill--section status-pill--section-variable">
+                            {section.expiringSoonCount} vence(n) pronto
+                          </span>
+                        ) : null}
+                        <span className={`status-pill status-pill--section status-pill--section-${sectionTheme}`}>
+                          {section.items.length} activo(s)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="discount-card-grid">
+                      {section.items.map((discount) => (
+                        <DiscountCard
+                          key={discount.id}
+                          discount={discount}
+                          confirmingDelete={pendingDiscountDeleteId === discount.id}
+                          onEdit={() => openDiscountEditor(discount)}
+                          onAskDelete={() => setPendingDiscountDeleteId(discount.id)}
+                          onConfirmDelete={() => handleDiscountDelete(discount.id)}
+                          onCancelDelete={() => setPendingDiscountDeleteId(null)}
+                        />
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+        </section>
       ) : activeView === "shared" ? (
         <section className="shared-stage">
           <section className="metrics-grid">
@@ -1631,6 +1899,35 @@ export default function App() {
             />
           </div>
           <button type="button" className="modal-backdrop-dismiss" aria-label="Cerrar modal" onClick={closeComposer} />
+        </div>
+      ) : null}
+
+      {isDiscountComposerOpen ? (
+        <div className="modal-shell" role="dialog" aria-modal="true" aria-labelledby="discount-modal-title">
+          <div className="modal-panel" onClick={(event) => event.stopPropagation()}>
+            <DiscountForm
+              values={discountDraft}
+              mode={discountFormMode}
+              error={discountFormError}
+              isSubmitting={isSubmittingDiscount}
+              currentUserEmail={userEmail}
+              onChange={handleDiscountDraftChange}
+              onSubmit={handleDiscountSubmit}
+              onReset={closeDiscountComposer}
+              headerAction={
+                <button type="button" className="outline-button modal-close-button" onClick={closeDiscountComposer}>
+                  Cerrar
+                </button>
+              }
+              titleId="discount-modal-title"
+            />
+          </div>
+          <button
+            type="button"
+            className="modal-backdrop-dismiss"
+            aria-label="Cerrar modal"
+            onClick={closeDiscountComposer}
+          />
         </div>
       ) : null}
 

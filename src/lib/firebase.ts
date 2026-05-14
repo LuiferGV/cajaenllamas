@@ -8,7 +8,8 @@ import {
   type User
 } from "firebase/auth";
 import { equalTo, get, getDatabase, onValue, orderByChild, query, ref, remove, set, update } from "firebase/database";
-import type { FinanceState, SharedLoan } from "../types";
+import type { DiscountItem, FinanceState, SharedLoan } from "../types";
+import { normalizeDiscount, sortDiscounts } from "./discounts";
 import { EMPTY_STATE } from "./finance";
 import { normalizeFinanceState } from "./storage";
 import { normalizeSharedLoan, sortSharedLoans } from "./sharedLoans";
@@ -224,4 +225,45 @@ export async function saveSharedLoanRemote(sharedLoan: SharedLoan) {
 export async function deleteSharedLoanRemote(sharedLoan: SharedLoan) {
   const database = ensureDatabase();
   await remove(ref(database, `sharedLoans/${sharedLoan.id}`));
+}
+
+export function subscribeDiscounts(onChange: (discounts: DiscountItem[]) => void, onError?: (error: Error) => void) {
+  const database = ensureDatabase();
+  const discountsRef = ref(database, "discounts");
+
+  return onValue(
+    discountsRef,
+    (snapshot) => {
+      const value = (snapshot.val() as Record<string, Partial<DiscountItem>> | null) ?? null;
+      const discounts = Object.entries(value ?? {})
+        .map(([discountId, rawValue]) => normalizeDiscount({ ...rawValue, id: discountId }))
+        .sort(sortDiscounts);
+
+      onChange(discounts);
+    },
+    (error) => onError?.(error)
+  );
+}
+
+export async function saveDiscountRemote(discount: DiscountItem) {
+  const database = ensureDatabase();
+  await set(ref(database, `discounts/${discount.id}`), discount);
+}
+
+export async function deleteDiscountRemote(discountId: string) {
+  const database = ensureDatabase();
+  await remove(ref(database, `discounts/${discountId}`));
+}
+
+export async function deleteExpiredDiscountsRemote(discountIds: string[]) {
+  if (discountIds.length === 0) return;
+
+  const database = ensureDatabase();
+  const updates: Record<string, null> = {};
+
+  for (const discountId of discountIds) {
+    updates[`discounts/${discountId}`] = null;
+  }
+
+  await update(ref(database), updates);
 }
