@@ -1311,14 +1311,10 @@ export default function App() {
               </span>
             </div>
 
-            <p className="shared-card__copy">
-              Si tienes movimientos con varias personas, entra primero por usuario y luego revisa sus gastos compartidos sin mezclar todo en una sola lista.
-            </p>
-
             {sharedCounterpartySummaries.length === 0 ? (
               <div className="empty-state empty-state--compact">
                 <h3>Aun no tienes usuarios en compartidos</h3>
-                <p>Cuando cargues tu primer gasto compartido, aqui apareceran las personas con las que tienes movimientos activos.</p>
+                <p>Crea tu primer gasto compartido para empezar.</p>
               </div>
             ) : (
               <div className="shared-partner-grid">
@@ -1373,17 +1369,13 @@ export default function App() {
                 </span>
               </div>
 
-              <p className="shared-card__copy">
-                Aqui ves los gastos donde salio dinero de tu lado y la otra persona todavia te debe su parte. Ambos pueden editar y cada cambio queda registrado.
-              </p>
-
               {sharedLoansCreatedByMe.length === 0 ? (
                 <div className="empty-state empty-state--compact">
                   <h3>Aun no tienes gastos compartidos a favor</h3>
                   <p>
                     {sharedCounterpartyFilter === "all"
-                      ? "Usa el boton + desde esta pestaña para cargar una compra y repartirla con otro usuario del sistema."
-                      : "Con este usuario no tienes gastos a favor en este momento."}
+                      ? "Usa el boton + para cargar una compra compartida."
+                      : "Sin gastos a favor con este usuario."}
                   </p>
                 </div>
               ) : (
@@ -1417,17 +1409,13 @@ export default function App() {
                 </span>
               </div>
 
-              <p className="shared-card__copy">
-                Aqui aparecen las compras donde pago el otro usuario o donde te cargaron la deuda completa. Tambien puedes editar si algo quedo mal y el cambio quedara visible.
-              </p>
-
               {sharedLoansIDebt.length === 0 ? (
                 <div className="empty-state empty-state--compact">
                   <h3>No tienes gastos compartidos pendientes ahora mismo</h3>
                   <p>
                     {sharedCounterpartyFilter === "all"
-                      ? "Cuando alguien reparta una compra contigo o tu mismo cargues una deuda compartida, aparecera aqui automaticamente."
-                      : "Con este usuario no tienes deuda pendiente en este momento."}
+                      ? "Apareceran aqui cuando haya movimientos compartidos."
+                      : "Sin deuda pendiente con este usuario."}
                   </p>
                 </div>
               ) : (

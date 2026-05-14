@@ -1666,11 +1666,6 @@ select {
   padding: 22px;
 }
 
-.shared-card__copy {
-  margin: 0;
-  color: var(--text-main);
-}
-
 .shared-partners-card {
   margin-top: 0;
 }
@@ -1775,13 +1770,53 @@ select {
   letter-spacing: -0.03em;
 }
 
-.shared-loan-row__summary {
-  margin-top: 8px;
-}
-
 .shared-loan-row__log {
   font-size: 0.84rem;
   color: var(--text-muted);
+}
+
+.shared-info-toggle {
+  align-self: end;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(146, 187, 214, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-main);
+  font-weight: 800;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.shared-info-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(89, 173, 255, 0.3);
+}
+
+.shared-info-toggle.is-active {
+  background: linear-gradient(135deg, rgba(89, 173, 255, 0.2), rgba(96, 230, 199, 0.16));
+  border-color: rgba(89, 173, 255, 0.34);
+  color: var(--text-strong);
+}
+
+.shared-loan-row__details {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(146, 187, 214, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shared-loan-row__details p {
+  margin: 0;
+  color: var(--text-main);
 }
 
 .shared-payment-box {
@@ -1791,15 +1826,6 @@ select {
   border-radius: 18px;
   border: 1px solid rgba(89, 173, 255, 0.14);
   background: rgba(255, 255, 255, 0.03);
-}
-
-.shared-payment-box__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  color: var(--text-main);
 }
 
 .summary-expense-card__note {

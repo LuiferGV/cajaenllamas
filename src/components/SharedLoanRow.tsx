@@ -45,11 +45,13 @@ export function SharedLoanRow({
   const paidAmount = getSharedLoanPaidAmount(loan);
   const remainingAmount = getSharedLoanSettlementAmount(loan);
   const [showPartialPaymentEditor, setShowPartialPaymentEditor] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [partialPaymentDraft, setPartialPaymentDraft] = useState("");
   const canSavePartialPayment = partialPaymentDraft.replace(/[^\d]/g, "").length > 0;
 
   useEffect(() => {
     setShowPartialPaymentEditor(false);
+    setShowInfo(false);
     setPartialPaymentDraft("");
   }, [loan.id, loan.lastEditedAt]);
 
@@ -71,11 +73,18 @@ export function SharedLoanRow({
               </div>
               <p className="entry-card__entity">{counterpartEmail}</p>
               <h3>{loan.title}</h3>
-              <p className="shared-loan-row__summary">{summary}</p>
             </div>
           </div>
 
           <div className="entry-card__amounts">
+            <button
+              type="button"
+              className={`shared-info-toggle ${showInfo ? "is-active" : ""}`}
+              aria-label={showInfo ? "Ocultar detalles" : "Mostrar detalles"}
+              onClick={() => setShowInfo((current) => !current)}
+            >
+              !
+            </button>
             <strong>{formatCurrency(remainingAmount)}</strong>
             <span>Saldo pendiente actual</span>
           </div>
@@ -100,19 +109,17 @@ export function SharedLoanRow({
           </div>
         </div>
 
-        <div className="entry-card__meta">
-          <span>{loan.notes || "Sin notas adicionales para este gasto compartido."}</span>
-          <span className="shared-loan-row__log">
-            Modificado por {loan.lastEditedByEmail || "usuario"} el {formatDateTime(loan.lastEditedAt)}
-          </span>
-        </div>
+        {showInfo ? (
+          <div className="shared-loan-row__details">
+            <p>{summary}</p>
+            {loan.notes ? <p>{loan.notes}</p> : null}
+            <p className="shared-loan-row__log">
+              Modificado por {loan.lastEditedByEmail || "usuario"} el {formatDateTime(loan.lastEditedAt)}
+            </p>
+          </div>
+        ) : null}
 
         <div className="shared-payment-box">
-          <div className="shared-payment-box__summary">
-            <span>Puedes registrar un abono menor si no se cancelo todo de una vez.</span>
-            <span>El sistema descuenta ese monto y deja visible lo que aun falta pagar.</span>
-          </div>
-
           <div className="entry-card__actions entry-card__actions--shared">
             <button
               type="button"
@@ -124,7 +131,7 @@ export function SharedLoanRow({
                 }
               }}
             >
-              {showPartialPaymentEditor ? "Cancelar abono" : "Registrar abono"}
+              {showPartialPaymentEditor ? "Cancelar" : "Pago parcial"}
             </button>
             <button type="button" className="primary-button" onClick={onToggleSettled}>
               Saldar todo
@@ -156,7 +163,7 @@ export function SharedLoanRow({
                   setShowPartialPaymentEditor(false);
                 }}
               >
-                Guardar abono
+                Guardar pago
               </button>
             </div>
           ) : null}
