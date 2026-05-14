@@ -17,6 +17,7 @@ interface SharedLoanRowProps {
   loan: SharedLoan;
   currentUserEmail: string | null;
   confirmingDelete: boolean;
+  showActions?: boolean;
   onEdit: () => void;
   onRegisterPartialPayment: (nextAmount: string) => void;
   onToggleSettled: () => void;
@@ -29,6 +30,7 @@ export function SharedLoanRow({
   loan,
   currentUserEmail,
   confirmingDelete,
+  showActions = true,
   onEdit,
   onRegisterPartialPayment,
   onToggleSettled,
@@ -44,6 +46,7 @@ export function SharedLoanRow({
   const originalSettlementAmount = getSharedLoanOriginalSettlementAmount(loan);
   const paidAmount = getSharedLoanPaidAmount(loan);
   const remainingAmount = getSharedLoanSettlementAmount(loan);
+  const latestActivity = loan.history[0] ?? null;
   const [showPartialPaymentEditor, setShowPartialPaymentEditor] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [partialPaymentDraft, setPartialPaymentDraft] = useState("");
@@ -119,104 +122,113 @@ export function SharedLoanRow({
           </div>
         ) : null}
 
-        <div className="shared-payment-box">
-          <div className="shared-action-row">
-            <div className="entry-card__actions entry-card__actions--shared shared-action-row__main">
-              <button
-                type="button"
-                className="outline-button"
-                onClick={() => {
-                  setShowPartialPaymentEditor((current) => !current);
-                  if (showPartialPaymentEditor) {
+        {showActions ? (
+          <div className="shared-payment-box">
+            <div className="shared-action-row">
+              <div className="entry-card__actions entry-card__actions--shared shared-action-row__main">
+                <button
+                  type="button"
+                  className="outline-button"
+                  onClick={() => {
+                    setShowPartialPaymentEditor((current) => !current);
+                    if (showPartialPaymentEditor) {
+                      setPartialPaymentDraft("");
+                    }
+                  }}
+                >
+                  {showPartialPaymentEditor ? "Cancelar" : "Pago parcial"}
+                </button>
+                <button type="button" className="primary-button" onClick={onToggleSettled}>
+                  Saldar todo
+                </button>
+              </div>
+
+              <div className="shared-action-row__icons">
+                <button
+                  type="button"
+                  className="ghost-button shared-icon-button"
+                  onClick={onEdit}
+                  aria-label="Editar gasto compartido"
+                  title="Editar gasto compartido"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      d="M4 20l4.4-.9L18.8 8.7a1.7 1.7 0 000-2.4l-1.1-1.1a1.7 1.7 0 00-2.4 0L4.9 15.6 4 20z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button shared-icon-button shared-icon-button--danger"
+                  onClick={onAskDelete}
+                  aria-label="Eliminar gasto compartido"
+                  title="Eliminar gasto compartido"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {showPartialPaymentEditor ? (
+              <div className="inline-editor inline-editor--shared-payment">
+                <label className="inline-editor__field">
+                  <span>Monto del abono parcial</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={partialPaymentDraft}
+                    onChange={(event) => setPartialPaymentDraft(event.target.value)}
+                    placeholder="250000"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={!canSavePartialPayment}
+                  onClick={() => {
+                    onRegisterPartialPayment(partialPaymentDraft);
                     setPartialPaymentDraft("");
-                  }
-                }}
-              >
-                {showPartialPaymentEditor ? "Cancelar" : "Pago parcial"}
-              </button>
-              <button type="button" className="primary-button" onClick={onToggleSettled}>
-                Saldar todo
-              </button>
-            </div>
+                    setShowPartialPaymentEditor(false);
+                  }}
+                >
+                  Guardar pago
+                </button>
+              </div>
+            ) : null}
 
-            <div className="shared-action-row__icons">
-              <button
-                type="button"
-                className="ghost-button shared-icon-button"
-                onClick={onEdit}
-                aria-label="Editar gasto compartido"
-                title="Editar gasto compartido"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M4 20l4.4-.9L18.8 8.7a1.7 1.7 0 000-2.4l-1.1-1.1a1.7 1.7 0 00-2.4 0L4.9 15.6 4 20z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="ghost-button shared-icon-button shared-icon-button--danger"
-                onClick={onAskDelete}
-                aria-label="Eliminar gasto compartido"
-                title="Eliminar gasto compartido"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M7 7l10 10M17 7L7 17"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
+            {confirmingDelete ? (
+              <div className="entry-card__actions entry-card__actions--shared shared-delete-confirm">
+                <button type="button" className="danger-button" onClick={onConfirmDelete}>
+                  Confirmar borrar
+                </button>
+                <button type="button" className="ghost-button" onClick={onCancelDelete}>
+                  Cancelar
+                </button>
+              </div>
+            ) : null}
           </div>
-
-          {showPartialPaymentEditor ? (
-            <div className="inline-editor inline-editor--shared-payment">
-              <label className="inline-editor__field">
-                <span>Monto del abono parcial</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={partialPaymentDraft}
-                  onChange={(event) => setPartialPaymentDraft(event.target.value)}
-                  placeholder="250000"
-                />
-              </label>
-              <button
-                type="button"
-                className="outline-button"
-                disabled={!canSavePartialPayment}
-                onClick={() => {
-                  onRegisterPartialPayment(partialPaymentDraft);
-                  setPartialPaymentDraft("");
-                  setShowPartialPaymentEditor(false);
-                }}
-              >
-                Guardar pago
-              </button>
-            </div>
-          ) : null}
-
-          {confirmingDelete ? (
-            <div className="entry-card__actions entry-card__actions--shared shared-delete-confirm">
-              <button type="button" className="danger-button" onClick={onConfirmDelete}>
-                Confirmar borrar
-              </button>
-              <button type="button" className="ghost-button" onClick={onCancelDelete}>
-                Cancelar
-              </button>
-            </div>
-          ) : null}
-        </div>
+        ) : latestActivity ? (
+          <div className="shared-loan-row__history-note">
+            <strong>{latestActivity.summary}</strong>
+            <span>
+              {latestActivity.changedByEmail || loan.lastEditedByEmail || "usuario"} · {formatDateTime(latestActivity.changedAt)}
+            </span>
+          </div>
+        ) : null}
       </div>
     </article>
   );

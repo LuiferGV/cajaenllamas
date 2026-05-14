@@ -194,34 +194,44 @@ export default function App() {
   const loanCompletionRatio = getCompletionRatio(metrics.loans);
   const authScreenError = manualAuthError ?? authError;
   const activeSharedLoans = sharedLoans.filter((loan) => !loan.isCompleted);
+  const visibleSharedLoans =
+    sharedCounterpartyFilter === "all"
+      ? sharedLoans
+      : sharedLoans.filter((loan) => getSharedLoanCounterpartyEmail(loan, userEmail) === sharedCounterpartyFilter);
   const sharedCounterpartySummaries = Array.from(
-    activeSharedLoans.reduce((map, loan) => {
+    sharedLoans.reduce((map, loan) => {
       const counterpartEmail = getSharedLoanCounterpartyEmail(loan, userEmail);
       const roleLabel = getSharedLoanRoleLabel(loan, userEmail);
       const settlementAmount = getSharedLoanSettlementAmount(loan);
       const current = map.get(counterpartEmail) ?? {
         email: counterpartEmail,
         activeCount: 0,
+        completedCount: 0,
         theyOweMe: 0,
         iOwe: 0
       };
 
-      current.activeCount += 1;
-      if (roleLabel === "Me deben") {
-        current.theyOweMe += settlementAmount;
+      if (loan.isCompleted) {
+        current.completedCount += 1;
       } else {
-        current.iOwe += settlementAmount;
+        current.activeCount += 1;
+        if (roleLabel === "Me deben") {
+          current.theyOweMe += settlementAmount;
+        } else {
+          current.iOwe += settlementAmount;
+        }
       }
 
       map.set(counterpartEmail, current);
       return map;
-    }, new Map<string, { email: string; activeCount: number; theyOweMe: number; iOwe: number }>())
+    }, new Map<string, { email: string; activeCount: number; completedCount: number; theyOweMe: number; iOwe: number }>())
   )
     .map(([, value]) => value)
     .sort((left, right) => {
       const amountDiff = right.theyOweMe + right.iOwe - (left.theyOweMe + left.iOwe);
       if (amountDiff !== 0) return amountDiff;
       if (right.activeCount !== left.activeCount) return right.activeCount - left.activeCount;
+      if (right.completedCount !== left.completedCount) return right.completedCount - left.completedCount;
       return left.email.localeCompare(right.email);
     });
   const sharedAllLentTotal = sharedCounterpartySummaries.reduce((sum, summary) => sum + summary.theyOweMe, 0);
@@ -230,10 +240,8 @@ export default function App() {
     sharedCounterpartyFilter === "all"
       ? null
       : sharedCounterpartySummaries.find((summary) => summary.email === sharedCounterpartyFilter) ?? null;
-  const filteredSharedLoans =
-    sharedCounterpartyFilter === "all"
-      ? activeSharedLoans
-      : activeSharedLoans.filter((loan) => getSharedLoanCounterpartyEmail(loan, userEmail) === sharedCounterpartyFilter);
+  const filteredSharedLoans = visibleSharedLoans.filter((loan) => !loan.isCompleted);
+  const completedSharedLoans = visibleSharedLoans.filter((loan) => loan.isCompleted);
   const sharedLoansCreatedByMe = filteredSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Me deben");
   const sharedLoansIDebt = filteredSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Debo");
   const sharedPrincipalLent = sharedLoansCreatedByMe.reduce((sum, loan) => sum + getSharedLoanSettlementAmount(loan), 0);
@@ -278,7 +286,7 @@ export default function App() {
       : selectedCounterpartySummary
         ? [describeSharedCounterpartyBalance(selectedCounterpartySummary)]
         : [];
-  const sharedPayments = filteredSharedLoans
+  const sharedPayments = visibleSharedLoans
     .flatMap((loan) =>
       loan.history.map((entry) => ({
         ...entry,
@@ -1659,7 +1667,9 @@ export default function App() {
                 >
                   <div className="shared-partner-card__header">
                     <strong>Mostrar todo</strong>
-                    <span className="status-pill status-pill--neutral">{activeSharedLoans.length} activos</span>
+                    <span className="status-pill status-pill--neutral">
+                      {activeSharedLoans.length} activa(s) · {sharedLoans.length - activeSharedLoans.length} cerrada(s)
+                    </span>
                   </div>
                   <div className="shared-partner-card__stats">
                     <span>Me deben {formatCurrency(sharedAllLentTotal)}</span>
@@ -1679,7 +1689,9 @@ export default function App() {
                         <CompanyLogo entityName={summary.email} kind="loan" size="sm" searchText={summary.email} />
                         <strong>{summary.email}</strong>
                       </div>
-                      <span className="status-pill status-pill--neutral">{summary.activeCount} activo(s)</span>
+                      <span className="status-pill status-pill--neutral">
+                        {summary.activeCount} activa(s) · {summary.completedCount} cerrada(s)
+                      </span>
                     </div>
                     <div className="shared-partner-card__stats">
                       <span>Me deben {formatCurrency(summary.theyOweMe)}</span>
@@ -1811,6 +1823,47 @@ export default function App() {
                       onAskDelete={() => setPendingSharedDeleteId(loan.id)}
                       onConfirmDelete={() => handleSharedLoanDelete(loan.id)}
                       onCancelDelete={() => setPendingSharedDeleteId(null)}
+                    />
+                  ))}
+                </div>
+              )}
+            </article>
+          </section>
+
+          <section className="shared-history-stage">
+            <article className="surface-card shared-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Historial de deudas</p>
+                  <h2>Cuentas saldadas</h2>
+                </div>
+                <span className="status-pill status-pill--neutral">{completedSharedLoans.length} cerrada(s)</span>
+              </div>
+
+              {completedSharedLoans.length === 0 ? (
+                <div className="empty-state empty-state--compact">
+                  <h3>Aun no tienes cuentas saldadas</h3>
+                  <p>
+                    {sharedCounterpartyFilter === "all"
+                      ? "Cuando cierres una deuda compartida, quedara registrada aqui con fecha y usuario."
+                      : "Todavia no hay cuentas cerradas con este usuario."}
+                  </p>
+                </div>
+              ) : (
+                <div className="shared-loan-list">
+                  {completedSharedLoans.map((loan) => (
+                    <SharedLoanRow
+                      key={loan.id}
+                      loan={loan}
+                      currentUserEmail={userEmail}
+                      confirmingDelete={false}
+                      showActions={false}
+                      onEdit={() => undefined}
+                      onRegisterPartialPayment={() => undefined}
+                      onToggleSettled={() => undefined}
+                      onAskDelete={() => undefined}
+                      onConfirmDelete={() => undefined}
+                      onCancelDelete={() => undefined}
                     />
                   ))}
                 </div>
