@@ -1736,6 +1736,40 @@ select {
   font-size: 0.92rem;
 }
 
+.shared-balance-card__copy {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.shared-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.shared-balance-stat {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(89, 173, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shared-balance-stat span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--cobalt-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.shared-balance-stat strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
 .shared-loan-list {
   display: grid;
   gap: 16px;
@@ -2458,6 +2492,7 @@ select {
   .category-card__stats,
   .dashboard-category-grid,
   .dashboard-category-card__stats,
+  .shared-balance-grid,
   .summary-loan-card__stats,
   .shared-stage__grid,
   .shared-loan-row__stats,

@@ -90,6 +90,7 @@ export default function App() {
   const [formError, setFormError] = useState<string | null>(null);
   const [sharedLoanFormError, setSharedLoanFormError] = useState<string | null>(null);
   const [isSubmittingSharedLoan, setIsSubmittingSharedLoan] = useState(false);
+  const [isSettlingAllShared, setIsSettlingAllShared] = useState(false);
   const [sharedCounterpartyFilter, setSharedCounterpartyFilter] = useState<string>("all");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingSharedDeleteId, setPendingSharedDeleteId] = useState<string | null>(null);
@@ -201,6 +202,8 @@ export default function App() {
   const sharedLoansIDebt = filteredSharedLoans.filter((loan) => getSharedLoanRoleLabel(loan, userEmail) === "Debo");
   const sharedPrincipalLent = sharedLoansCreatedByMe.reduce((sum, loan) => sum + getSharedLoanSettlementAmount(loan), 0);
   const sharedPrincipalBorrowed = sharedLoansIDebt.reduce((sum, loan) => sum + getSharedLoanSettlementAmount(loan), 0);
+  const sharedNetBalance = sharedPrincipalLent - sharedPrincipalBorrowed;
+  const selectedCounterpartyLabel = sharedCounterpartyFilter === "all" ? "general" : sharedCounterpartyFilter;
   const sharedPayments = filteredSharedLoans
     .flatMap((loan) =>
       loan.history.map((entry) => ({
@@ -525,6 +528,24 @@ export default function App() {
       }
 
       setPendingSharedDeleteId(null);
+    })();
+  };
+
+  const handleSettleAllSharedLoans = () => {
+    if (!userId || !userEmail || filteredSharedLoans.length === 0) return;
+
+    setIsSettlingAllShared(true);
+
+    void (async () => {
+      try {
+        for (const loan of filteredSharedLoans) {
+          if (loan.isCompleted) continue;
+          const nextLoan = toggleSharedLoanCompleted(loan, { userId, userEmail });
+          await saveSharedLoan(nextLoan);
+        }
+      } finally {
+        setIsSettlingAllShared(false);
+      }
     })();
   };
 
@@ -1355,6 +1376,58 @@ export default function App() {
                 ))}
               </div>
             )}
+          </article>
+
+          <article className="surface-card shared-card shared-balance-card">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Resumen de cuentas</p>
+                <h2>{sharedCounterpartyFilter === "all" ? "Balance general" : `Balance con ${selectedCounterpartyLabel}`}</h2>
+              </div>
+              <button
+                type="button"
+                className="outline-button"
+                onClick={handleSettleAllSharedLoans}
+                disabled={filteredSharedLoans.length === 0 || isSettlingAllShared}
+              >
+                {isSettlingAllShared ? "Saldando..." : "Saldar todas las cuentas"}
+              </button>
+            </div>
+
+            <p className="shared-balance-card__copy">
+              {sharedCounterpartyFilter === "all"
+                ? sharedNetBalance === 0
+                  ? `Debes ${formatCurrency(sharedPrincipalBorrowed)} y te deben ${formatCurrency(sharedPrincipalLent)}. Balance general en cero.`
+                  : sharedNetBalance > 0
+                    ? `Debes ${formatCurrency(sharedPrincipalBorrowed)} y te deben ${formatCurrency(sharedPrincipalLent)}. En total te deben ${formatCurrency(sharedNetBalance)}.`
+                    : `Debes ${formatCurrency(sharedPrincipalBorrowed)} y te deben ${formatCurrency(sharedPrincipalLent)}. En total debes ${formatCurrency(Math.abs(sharedNetBalance))}.`
+                : sharedNetBalance === 0
+                  ? `Tu debes ${formatCurrency(sharedPrincipalBorrowed)} y ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedPrincipalLent)}. Estan a mano.`
+                  : sharedNetBalance > 0
+                    ? `Tu debes ${formatCurrency(sharedPrincipalBorrowed)} y ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedPrincipalLent)}. En total ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedNetBalance)}.`
+                    : `Tu debes ${formatCurrency(sharedPrincipalBorrowed)} y ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedPrincipalLent)}. En total le debes ${formatCurrency(Math.abs(sharedNetBalance))} a ${selectedCounterpartyLabel}.`}
+            </p>
+
+            <div className="shared-balance-grid">
+              <div className="shared-balance-stat">
+                <span>Me deben</span>
+                <strong>{formatCurrency(sharedPrincipalLent)}</strong>
+              </div>
+              <div className="shared-balance-stat">
+                <span>Debo</span>
+                <strong>{formatCurrency(sharedPrincipalBorrowed)}</strong>
+              </div>
+              <div className="shared-balance-stat">
+                <span>Balance neto</span>
+                <strong>
+                  {sharedNetBalance === 0
+                    ? "Gs.0"
+                    : sharedNetBalance > 0
+                      ? `+ ${formatCurrency(sharedNetBalance)}`
+                      : `- ${formatCurrency(Math.abs(sharedNetBalance))}`}
+                </strong>
+              </div>
+            </div>
           </article>
 
           <section className="shared-stage__grid">
