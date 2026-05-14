@@ -194,6 +194,10 @@ export default function App() {
     });
   const sharedAllLentTotal = sharedCounterpartySummaries.reduce((sum, summary) => sum + summary.theyOweMe, 0);
   const sharedAllBorrowedTotal = sharedCounterpartySummaries.reduce((sum, summary) => sum + summary.iOwe, 0);
+  const selectedCounterpartySummary =
+    sharedCounterpartyFilter === "all"
+      ? null
+      : sharedCounterpartySummaries.find((summary) => summary.email === sharedCounterpartyFilter) ?? null;
   const filteredSharedLoans =
     sharedCounterpartyFilter === "all"
       ? activeSharedLoans
@@ -204,6 +208,44 @@ export default function App() {
   const sharedPrincipalBorrowed = sharedLoansIDebt.reduce((sum, loan) => sum + getSharedLoanSettlementAmount(loan), 0);
   const sharedNetBalance = sharedPrincipalLent - sharedPrincipalBorrowed;
   const selectedCounterpartyLabel = sharedCounterpartyFilter === "all" ? "general" : sharedCounterpartyFilter;
+  const sharedNetBalanceAmount = Math.abs(sharedNetBalance);
+  const sharedNetBalanceLabel =
+    sharedNetBalance === 0 ? "Sin diferencia" : sharedNetBalance > 0 ? "Te deben en total" : "Debes en total";
+  const sharedBalanceTitle =
+    sharedCounterpartyFilter === "all" ? "Resumen por usuario" : `Cuenta con ${selectedCounterpartyLabel}`;
+  const sharedBalanceIntro =
+    sharedCounterpartyFilter === "all"
+      ? "Todas tus cuentas compartidas abiertas, separadas por usuario."
+      : `Resumen puntual de tu cuenta compartida con ${selectedCounterpartyLabel}.`;
+  const describeSharedCounterpartyBalance = (summary: { email: string; theyOweMe: number; iOwe: number }) => {
+    if (summary.theyOweMe > 0 && summary.iOwe > 0) {
+      if (summary.theyOweMe === summary.iOwe) {
+        return `${summary.email} te debe ${formatCurrency(summary.theyOweMe)} y tu le debes ${formatCurrency(summary.iOwe)}. En total quedan a mano.`;
+      }
+
+      if (summary.theyOweMe > summary.iOwe) {
+        return `${summary.email} te debe ${formatCurrency(summary.theyOweMe)} y tu le debes ${formatCurrency(summary.iOwe)}. En total ${summary.email} te debe ${formatCurrency(summary.theyOweMe - summary.iOwe)}.`;
+      }
+
+      return `${summary.email} te debe ${formatCurrency(summary.theyOweMe)} y tu le debes ${formatCurrency(summary.iOwe)}. En total le debes ${formatCurrency(summary.iOwe - summary.theyOweMe)} a ${summary.email}.`;
+    }
+
+    if (summary.theyOweMe > 0) {
+      return `${summary.email} te debe ${formatCurrency(summary.theyOweMe)}.`;
+    }
+
+    if (summary.iOwe > 0) {
+      return `Tu le debes ${formatCurrency(summary.iOwe)} a ${summary.email}.`;
+    }
+
+    return `No hay saldo pendiente con ${summary.email}.`;
+  };
+  const sharedBalanceSummaryLines =
+    sharedCounterpartyFilter === "all"
+      ? sharedCounterpartySummaries.map(describeSharedCounterpartyBalance)
+      : selectedCounterpartySummary
+        ? [describeSharedCounterpartyBalance(selectedCounterpartySummary)]
+        : [];
   const sharedPayments = filteredSharedLoans
     .flatMap((loan) =>
       loan.history.map((entry) => ({
@@ -1382,7 +1424,7 @@ export default function App() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Resumen de cuentas</p>
-                <h2>{sharedCounterpartyFilter === "all" ? "Balance general" : `Balance con ${selectedCounterpartyLabel}`}</h2>
+                <h2>{sharedBalanceTitle}</h2>
               </div>
               <button
                 type="button"
@@ -1394,19 +1436,17 @@ export default function App() {
               </button>
             </div>
 
-            <p className="shared-balance-card__copy">
-              {sharedCounterpartyFilter === "all"
-                ? sharedNetBalance === 0
-                  ? `Debes ${formatCurrency(sharedPrincipalBorrowed)} y te deben ${formatCurrency(sharedPrincipalLent)}. Balance general en cero.`
-                  : sharedNetBalance > 0
-                    ? `Debes ${formatCurrency(sharedPrincipalBorrowed)} y te deben ${formatCurrency(sharedPrincipalLent)}. En total te deben ${formatCurrency(sharedNetBalance)}.`
-                    : `Debes ${formatCurrency(sharedPrincipalBorrowed)} y te deben ${formatCurrency(sharedPrincipalLent)}. En total debes ${formatCurrency(Math.abs(sharedNetBalance))}.`
-                : sharedNetBalance === 0
-                  ? `Tu debes ${formatCurrency(sharedPrincipalBorrowed)} y ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedPrincipalLent)}. Estan a mano.`
-                  : sharedNetBalance > 0
-                    ? `Tu debes ${formatCurrency(sharedPrincipalBorrowed)} y ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedPrincipalLent)}. En total ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedNetBalance)}.`
-                    : `Tu debes ${formatCurrency(sharedPrincipalBorrowed)} y ${selectedCounterpartyLabel} te debe ${formatCurrency(sharedPrincipalLent)}. En total le debes ${formatCurrency(Math.abs(sharedNetBalance))} a ${selectedCounterpartyLabel}.`}
-            </p>
+            <p className="shared-balance-card__copy">{sharedBalanceIntro}</p>
+
+            {sharedBalanceSummaryLines.length > 0 ? (
+              <div className="shared-balance-list">
+                {sharedBalanceSummaryLines.map((line) => (
+                  <p key={line} className="shared-balance-list__item">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : null}
 
             <div className="shared-balance-grid">
               <div className="shared-balance-stat">
@@ -1418,14 +1458,9 @@ export default function App() {
                 <strong>{formatCurrency(sharedPrincipalBorrowed)}</strong>
               </div>
               <div className="shared-balance-stat">
-                <span>Balance neto</span>
-                <strong>
-                  {sharedNetBalance === 0
-                    ? "Gs.0"
-                    : sharedNetBalance > 0
-                      ? `+ ${formatCurrency(sharedNetBalance)}`
-                      : `- ${formatCurrency(Math.abs(sharedNetBalance))}`}
-                </strong>
+                <span>Resultado</span>
+                <strong>{formatCurrency(sharedNetBalanceAmount)}</strong>
+                <p>{sharedNetBalanceLabel}</p>
               </div>
             </div>
           </article>

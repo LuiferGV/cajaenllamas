@@ -136,8 +136,23 @@ export function SharedLoanRow({
             <button type="button" className="primary-button" onClick={onToggleSettled}>
               Saldar todo
             </button>
-            <button type="button" className="ghost-button" onClick={onEdit}>
-              Editar
+            <button
+              type="button"
+              className="ghost-button shared-icon-button"
+              onClick={onEdit}
+              aria-label="Editar gasto compartido"
+              title="Editar gasto compartido"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M4 20l4.4-.9L18.8 8.7a1.7 1.7 0 000-2.4l-1.1-1.1a1.7 1.7 0 00-2.4 0L4.9 15.6 4 20z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
           </div>
 

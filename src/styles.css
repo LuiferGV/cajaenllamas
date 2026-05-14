@@ -1741,6 +1741,16 @@ select {
   color: var(--text-main);
 }
 
+.shared-balance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.shared-balance-list__item {
+  margin: 0;
+  color: var(--text-main);
+}
+
 .shared-balance-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1768,6 +1778,12 @@ select {
   font-family: "Sora", sans-serif;
   font-size: 1.05rem;
   letter-spacing: -0.03em;
+}
+
+.shared-balance-stat p {
+  margin: 6px 0 0;
+  color: var(--text-main);
+  font-size: 0.88rem;
 }
 
 .shared-loan-list {
@@ -1837,6 +1853,18 @@ select {
   background: linear-gradient(135deg, rgba(89, 173, 255, 0.2), rgba(96, 230, 199, 0.16));
   border-color: rgba(89, 173, 255, 0.34);
   color: var(--text-strong);
+}
+
+.shared-icon-button {
+  width: 48px;
+  min-width: 48px;
+  padding: 0;
+}
+
+.shared-icon-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .shared-loan-row__details {
