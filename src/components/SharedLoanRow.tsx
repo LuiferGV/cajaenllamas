@@ -120,40 +120,63 @@ export function SharedLoanRow({
         ) : null}
 
         <div className="shared-payment-box">
-          <div className="entry-card__actions entry-card__actions--shared">
-            <button
-              type="button"
-              className="outline-button"
-              onClick={() => {
-                setShowPartialPaymentEditor((current) => !current);
-                if (showPartialPaymentEditor) {
-                  setPartialPaymentDraft("");
-                }
-              }}
-            >
-              {showPartialPaymentEditor ? "Cancelar" : "Pago parcial"}
-            </button>
-            <button type="button" className="primary-button" onClick={onToggleSettled}>
-              Saldar todo
-            </button>
-            <button
-              type="button"
-              className="ghost-button shared-icon-button"
-              onClick={onEdit}
-              aria-label="Editar gasto compartido"
-              title="Editar gasto compartido"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M4 20l4.4-.9L18.8 8.7a1.7 1.7 0 000-2.4l-1.1-1.1a1.7 1.7 0 00-2.4 0L4.9 15.6 4 20z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+          <div className="shared-action-row">
+            <div className="entry-card__actions entry-card__actions--shared shared-action-row__main">
+              <button
+                type="button"
+                className="outline-button"
+                onClick={() => {
+                  setShowPartialPaymentEditor((current) => !current);
+                  if (showPartialPaymentEditor) {
+                    setPartialPaymentDraft("");
+                  }
+                }}
+              >
+                {showPartialPaymentEditor ? "Cancelar" : "Pago parcial"}
+              </button>
+              <button type="button" className="primary-button" onClick={onToggleSettled}>
+                Saldar todo
+              </button>
+            </div>
+
+            <div className="shared-action-row__icons">
+              <button
+                type="button"
+                className="ghost-button shared-icon-button"
+                onClick={onEdit}
+                aria-label="Editar gasto compartido"
+                title="Editar gasto compartido"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4 20l4.4-.9L18.8 8.7a1.7 1.7 0 000-2.4l-1.1-1.1a1.7 1.7 0 00-2.4 0L4.9 15.6 4 20z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="ghost-button shared-icon-button shared-icon-button--danger"
+                onClick={onAskDelete}
+                aria-label="Eliminar gasto compartido"
+                title="Eliminar gasto compartido"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M7 7l10 10M17 7L7 17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {showPartialPaymentEditor ? (
@@ -183,22 +206,16 @@ export function SharedLoanRow({
             </div>
           ) : null}
 
-          <div className="entry-card__actions entry-card__actions--shared">
-            {confirmingDelete ? (
-              <>
-                <button type="button" className="danger-button" onClick={onConfirmDelete}>
-                  Confirmar borrar
-                </button>
-                <button type="button" className="ghost-button" onClick={onCancelDelete}>
-                  Cancelar
-                </button>
-              </>
-            ) : (
-              <button type="button" className="ghost-button ghost-button--danger" onClick={onAskDelete}>
-                Eliminar
+          {confirmingDelete ? (
+            <div className="entry-card__actions entry-card__actions--shared shared-delete-confirm">
+              <button type="button" className="danger-button" onClick={onConfirmDelete}>
+                Confirmar borrar
               </button>
-            )}
-          </div>
+              <button type="button" className="ghost-button" onClick={onCancelDelete}>
+                Cancelar
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </article>

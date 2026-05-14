@@ -693,6 +693,13 @@ export default function App() {
     <div className="page-shell">
       <div className="page-backdrop" />
 
+      <div className="page-shell__session">
+        {userEmail ? <span className="status-pill status-pill--neutral topbar__user-pill">{userEmail}</span> : null}
+        <button type="button" className="outline-button" onClick={() => void logout()}>
+          Cerrar sesion
+        </button>
+      </div>
+
       <header className="topbar">
         <div className="topbar__brand">
           <div className="topbar__logo-wrap">
@@ -740,11 +747,7 @@ export default function App() {
             </button>
           </nav>
 
-          <div className="topbar__actions">
-            {userEmail ? <span className="status-pill status-pill--neutral topbar__user-pill">{userEmail}</span> : null}
-            <button type="button" className="outline-button" onClick={() => void logout()}>
-              Cerrar sesion
-            </button>
+          <div className="topbar__toolbar-action">
             <button
               type="button"
               className="primary-button primary-button--icon"

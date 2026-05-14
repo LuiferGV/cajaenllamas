@@ -83,9 +83,18 @@ select {
 
 .page-shell {
   position: relative;
+  display: grid;
+  gap: 18px;
   max-width: 1520px;
   margin: 0 auto;
   padding: 24px;
+}
+
+.page-shell__session {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .shared-stage,
@@ -418,6 +427,7 @@ select {
 }
 
 .topbar__actions,
+.topbar__toolbar-action,
 .section-heading,
 .composer-card__header-actions,
 .entry-card__heading,
@@ -433,6 +443,12 @@ select {
 }
 
 .topbar__actions {
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.topbar__toolbar-action {
   align-items: center;
   justify-content: flex-end;
   margin-left: auto;
@@ -1855,16 +1871,49 @@ select {
   color: var(--text-strong);
 }
 
+.shared-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shared-action-row__main {
+  flex: 1 1 280px;
+}
+
+.shared-action-row__icons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .shared-icon-button {
-  width: 48px;
-  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
   padding: 0;
+  border-radius: 999px;
 }
 
 .shared-icon-button svg {
   width: 18px;
   height: 18px;
   display: block;
+}
+
+.shared-icon-button--danger {
+  color: #ffb0ba;
+  background: rgba(255, 125, 143, 0.1);
+  border-color: rgba(255, 125, 143, 0.18);
+}
+
+.shared-delete-confirm {
+  padding-top: 2px;
 }
 
 .shared-loan-row__details {
@@ -2473,7 +2522,17 @@ select {
     align-items: stretch;
   }
 
+  .page-shell__session {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .topbar__actions {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .topbar__toolbar-action {
     justify-content: flex-start;
     margin-left: 0;
   }
@@ -2494,6 +2553,10 @@ select {
 
   .auth-stage {
     padding: 16px;
+  }
+
+  .page-shell__session {
+    gap: 10px;
   }
 
   .topbar,
@@ -2560,6 +2623,14 @@ select {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .shared-action-row {
+    align-items: stretch;
+  }
+
+  .shared-action-row__icons {
+    justify-content: flex-start;
   }
 
   .installment-plan__row {
